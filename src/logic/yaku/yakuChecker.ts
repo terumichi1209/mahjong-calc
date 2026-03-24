@@ -243,7 +243,7 @@ function checkSanshoku(parsed: ParsedHand): boolean {
   }
 
   for (const meld of parsed.melds) {
-    if (meld.type === 'shuntsu') {
+    if (meld.type === 'shuntsu' && meld.suit) {
       shuntsuBySuit[meld.suit].push(meld.tiles[0])
     }
   }
@@ -265,7 +265,7 @@ function checkSanshokuDoukou(parsed: ParsedHand): boolean {
   }
 
   for (const meld of parsed.melds) {
-    if (meld.type === 'koutsu') {
+    if (meld.type === 'koutsu' && meld.suit) {
       koutsuBySuit[meld.suit].push(meld.tiles[0])
     }
   }
