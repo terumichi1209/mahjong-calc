@@ -1,5 +1,5 @@
-import { Honor } from '@/types/tile'
-import { ParsedHand } from '@/logic/parser/handParser'
+import { Honor, Tile, isNumberTile } from '@/types/tile'
+import { ParsedHand, Meld, Pair, parseAllHands } from '@/logic/parser/handParser'
 
 export type WinMethod = 'ron' | 'tsumo'
 export type WaitType = 'ryanmen' | 'shanpon' | 'kanchan' | 'penchan' | 'tanki'
@@ -11,6 +11,36 @@ export const WAIT_TYPE_LABELS: Record<WaitType, string> = {
   kanchan: '嵌張',
   penchan: '辺張',
   tanki: '単騎',
+}
+
+// 和了牌からの待ち自動判定
+function pairMatchesTile(pair: Pair, tile: Tile): boolean {
+  if (isNumberTile(tile)) return pair.suit === tile.suit && pair.value === tile.value
+  return pair.honor === (tile as { honor: string }).honor
+}
+
+function meldContainsTile(meld: Meld, tile: Tile): boolean {
+  if (isNumberTile(tile))
+    return meld.suit === tile.suit && (meld.tiles?.includes(tile.value) ?? false)
+  return meld.honor === (tile as { honor: string }).honor
+}
+
+export function detectWaitType(tiles: Tile[], winTile: Tile): WaitType {
+  for (const parsed of parseAllHands(tiles)) {
+    if (pairMatchesTile(parsed.pair, winTile)) return 'tanki'
+    for (const meld of parsed.melds) {
+      if (!meldContainsTile(meld, winTile)) continue
+      if (meld.type === 'koutsu') return 'shanpon'
+      if (meld.type === 'shuntsu' && isNumberTile(winTile)) {
+        const [s1, s2, s3] = meld.tiles!
+        if (winTile.value === s2) return 'kanchan'
+        if (winTile.value === s3 && s1 === 1) return 'penchan'
+        if (winTile.value === s1 && s3 === 9) return 'penchan'
+        return 'ryanmen'
+      }
+    }
+  }
+  return 'ryanmen'
 }
 
 // 点数計算結果

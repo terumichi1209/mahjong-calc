@@ -15,10 +15,9 @@ import { TILE_IMAGES } from '@/assets/tileImages'
 import { checkAllYaku, WindContext } from '@/logic/yaku/yakuChecker'
 import {
   WinMethod,
-  WaitType,
-  WAIT_TYPE_LABELS,
   calculateFu,
   buildScoreString,
+  detectWaitType,
 } from '@/logic/score/scoreCalculator'
 import { isValidHand, parseHand } from '@/logic/parser/handParser'
 
@@ -40,41 +39,53 @@ const WINDS: { honor: Honor; label: string }[] = [
 ]
 
 export default function App() {
-  const [selectedTiles, setSelectedTiles] = useState<Tile[]>([])
+  const [handTiles, setHandTiles] = useState<Tile[]>([])
+  const [winTile, setWinTile] = useState<Tile | null>(null)
   const [yakuLines, setYakuLines] = useState<string[]>([])
   const [scoreLine, setScoreLine] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
   const [bakaze, setBakaze] = useState<Honor>('east')
   const [jikaze, setJikaze] = useState<Honor>('east')
   const [winMethod, setWinMethod] = useState<WinMethod>('ron')
-  const [waitType, setWaitType] = useState<WaitType>('ryanmen')
 
-  // 指定の牌が何枚選択されているか
+  const totalCount = handTiles.length + (winTile ? 1 : 0)
+
   const countTile = (tile: Tile) => {
-    return selectedTiles.filter((t) => isSameTile(t, tile)).length
+    const inHand = handTiles.filter((t) => isSameTile(t, tile)).length
+    const inWin = winTile && isSameTile(winTile, tile) ? 1 : 0
+    return inHand + inWin
   }
 
-  // 牌をソート
   const sortTiles = (tiles: Tile[]): Tile[] => {
     return [...tiles].sort((a, b) => tileToSortKey(a) - tileToSortKey(b))
   }
 
   const selectNumberTile = (suit: Suit, value: TileValue) => {
-    if (selectedTiles.length >= 14) return
     const tile: NumberTile = { type: 'number', suit, value }
     if (countTile(tile) >= 4) return
-    setSelectedTiles(sortTiles([...selectedTiles, tile]))
+    if (handTiles.length < 13) {
+      setHandTiles(sortTiles([...handTiles, tile]))
+    } else if (!winTile) {
+      setWinTile(tile)
+    }
   }
 
   const selectHonorTile = (honor: Honor) => {
-    if (selectedTiles.length >= 14) return
     const tile: HonorTile = { type: 'honor', honor }
     if (countTile(tile) >= 4) return
-    setSelectedTiles(sortTiles([...selectedTiles, tile]))
+    if (handTiles.length < 13) {
+      setHandTiles(sortTiles([...handTiles, tile]))
+    } else if (!winTile) {
+      setWinTile(tile)
+    }
   }
 
-  const removeTileAt = (index: number) => {
-    setSelectedTiles(selectedTiles.filter((_, i) => i !== index))
+  const removeHandTile = (index: number) => {
+    setHandTiles(handTiles.filter((_, i) => i !== index))
+  }
+
+  const removeWinTile = () => {
+    setWinTile(null)
   }
 
   const tileImageKey = (tile: Tile): string => {
@@ -94,16 +105,18 @@ export default function App() {
   }
 
   const clearAll = () => {
-    setSelectedTiles([])
+    setHandTiles([])
+    setWinTile(null)
     setYakuLines([])
     setScoreLine(null)
     setIsSuccess(false)
   }
 
-  // 14枚揃ったら自動計算
+  // 13枚+和了牌が揃ったら自動計算
   useEffect(() => {
-    if (selectedTiles.length === 14) {
-      if (!isValidHand(selectedTiles)) {
+    if (handTiles.length === 13 && winTile) {
+      const allTiles = [...handTiles, winTile]
+      if (!isValidHand(allTiles)) {
         setYakuLines(['無効な手牌（4面子+1雀頭の形になっていません）'])
         setScoreLine(null)
         setIsSuccess(false)
@@ -111,7 +124,7 @@ export default function App() {
       }
 
       const windContext: WindContext = { bakaze, jikaze }
-      const yaku = checkAllYaku(selectedTiles, windContext)
+      const yaku = checkAllYaku(allTiles, windContext)
       const isChiitoitsu = yaku.some((y) => y.name === '七対子')
       const isKokushiYaku = yaku.some((y) => y.name === '国士無双')
 
@@ -123,7 +136,8 @@ export default function App() {
         if (isKokushiYaku || isChiitoitsu) {
           scoreStr = buildScoreString(totalHan, 25, winMethod, isChiitoitsu)
         } else {
-          const parsed = parseHand(selectedTiles)
+          const parsed = parseHand(allTiles)
+          const waitType = detectWaitType(allTiles, winTile)
           const fu = parsed ? calculateFu(parsed, winMethod, waitType, bakaze, jikaze) : 30
           scoreStr = buildScoreString(totalHan, fu, winMethod)
         }
@@ -141,7 +155,7 @@ export default function App() {
       setScoreLine(null)
       setIsSuccess(false)
     }
-  }, [selectedTiles, bakaze, jikaze, winMethod, waitType])
+  }, [handTiles, winTile, bakaze, jikaze, winMethod])
 
   return (
     <View style={styles.container}>
@@ -204,36 +218,28 @@ export default function App() {
               </TouchableOpacity>
             ))}
           </View>
-          <View style={styles.windRow}>
-            <Text style={styles.windLabel}>待ち</Text>
-            {(Object.keys(WAIT_TYPE_LABELS) as WaitType[]).map((wt) => (
-              <TouchableOpacity
-                key={wt}
-                style={[styles.windButton, waitType === wt && styles.windButtonActive]}
-                onPress={() => setWaitType(wt)}
-              >
-                <Text
-                  style={[styles.windButtonText, waitType === wt && styles.windButtonTextActive]}
-                >
-                  {WAIT_TYPE_LABELS[wt]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         <View style={styles.handContainer}>
-          <Text style={styles.label}>手牌 ({selectedTiles.length}/14)</Text>
+          <Text style={styles.label}>手牌 ({totalCount}/14)</Text>
           <View style={styles.tilesRow}>
-            {selectedTiles.map((tile, index) => (
+            {handTiles.map((tile, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.selectedTile}
-                onPress={() => removeTileAt(index)}
+                onPress={() => removeHandTile(index)}
               >
                 <Image source={TILE_IMAGES[tileImageKey(tile)]} style={styles.tileImage} />
               </TouchableOpacity>
             ))}
+            {winTile && (
+              <>
+                <View style={styles.winTileSeparator} />
+                <TouchableOpacity style={styles.winTile} onPress={removeWinTile}>
+                  <Image source={TILE_IMAGES[tileImageKey(winTile)]} style={styles.tileImage} />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
@@ -397,6 +403,18 @@ const styles = StyleSheet.create({
   },
   selectedTile: {
     padding: 0,
+  },
+  winTileSeparator: {
+    width: 2,
+    backgroundColor: '#1976D2',
+    marginHorizontal: 4,
+    borderRadius: 1,
+  },
+  winTile: {
+    padding: 0,
+    borderWidth: 2,
+    borderColor: '#1976D2',
+    borderRadius: 4,
   },
   tileImage: {
     width: 40,
