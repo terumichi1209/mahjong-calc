@@ -8,7 +8,7 @@ import {
   Honor,
   NumberTile,
   HonorTile,
-  tileToString,
+  tileToEmoji,
   tileToSortKey,
   isSameTile,
 } from '@/types/tile'
@@ -41,7 +41,8 @@ const WINDS: { honor: Honor; label: string }[] = [
 
 export default function App() {
   const [selectedTiles, setSelectedTiles] = useState<Tile[]>([])
-  const [result, setResult] = useState<string | null>(null)
+  const [yakuLines, setYakuLines] = useState<string[]>([])
+  const [scoreLine, setScoreLine] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
   const [bakaze, setBakaze] = useState<Honor>('east')
   const [jikaze, setJikaze] = useState<Honor>('east')
@@ -78,13 +79,17 @@ export default function App() {
 
   const clearAll = () => {
     setSelectedTiles([])
+    setYakuLines([])
+    setScoreLine(null)
+    setIsSuccess(false)
   }
 
   // 14枚揃ったら自動計算
   useEffect(() => {
     if (selectedTiles.length === 14) {
       if (!isValidHand(selectedTiles)) {
-        setResult('無効な手牌（4面子+1雀頭の形になっていません）')
+        setYakuLines(['無効な手牌（4面子+1雀頭の形になっていません）'])
+        setScoreLine(null)
         setIsSuccess(false)
         return
       }
@@ -92,14 +97,14 @@ export default function App() {
       const windContext: WindContext = { bakaze, jikaze }
       const yaku = checkAllYaku(selectedTiles, windContext)
       const isChiitoitsu = yaku.some((y) => y.name === '七対子')
-      const isKokushi = yaku.some((y) => y.name === '国士無双')
+      const isKokushiYaku = yaku.some((y) => y.name === '国士無双')
 
       if (yaku.length > 0) {
         const totalHan = yaku.reduce((sum, y) => sum + y.han, 0)
-        const yakuNames = yaku.map((y) => `${y.name}(${y.han}翻)`).join(' / ')
+        const lines = yaku.map((y) => `${y.name}  ${y.han}翻`)
 
         let scoreStr: string
-        if (isKokushi || isChiitoitsu) {
+        if (isKokushiYaku || isChiitoitsu) {
           scoreStr = buildScoreString(totalHan, 25, winMethod, isChiitoitsu)
         } else {
           const parsed = parseHand(selectedTiles)
@@ -107,14 +112,17 @@ export default function App() {
           scoreStr = buildScoreString(totalHan, fu, winMethod)
         }
 
-        setResult(`${yakuNames}\n${scoreStr}`)
+        setYakuLines(lines)
+        setScoreLine(scoreStr)
         setIsSuccess(true)
       } else {
-        setResult('役なし')
+        setYakuLines(['役なし'])
+        setScoreLine(null)
         setIsSuccess(false)
       }
     } else {
-      setResult(null)
+      setYakuLines([])
+      setScoreLine(null)
       setIsSuccess(false)
     }
   }, [selectedTiles, bakaze, jikaze, winMethod, waitType])
@@ -207,7 +215,7 @@ export default function App() {
                 style={styles.selectedTile}
                 onPress={() => removeTileAt(index)}
               >
-                <Text style={styles.tileText}>{tileToString(tile)}</Text>
+                <Text style={styles.tileText}>{tileToEmoji(tile)}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -267,18 +275,34 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-        {result && (
+        {yakuLines.length > 0 && (
           <View
             style={[styles.resultContainer, isSuccess ? styles.resultSuccess : styles.resultError]}
           >
-            <Text
-              style={[
-                styles.resultText,
-                isSuccess ? styles.resultTextSuccess : styles.resultTextError,
-              ]}
-            >
-              {result}
-            </Text>
+            {yakuLines.map((line, i) => (
+              <Text
+                key={i}
+                style={[
+                  styles.yakuLine,
+                  isSuccess ? styles.resultTextSuccess : styles.resultTextError,
+                ]}
+              >
+                {line}
+              </Text>
+            ))}
+            {scoreLine && (
+              <>
+                <View style={styles.divider} />
+                <Text
+                  style={[
+                    styles.scoreLine,
+                    isSuccess ? styles.resultTextSuccess : styles.resultTextError,
+                  ]}
+                >
+                  {scoreLine}
+                </Text>
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -416,7 +440,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffebee',
     borderColor: '#f44336',
   },
-  resultText: {
+  yakuLine: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#90CAF9',
+    marginVertical: 8,
+  },
+  scoreLine: {
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',

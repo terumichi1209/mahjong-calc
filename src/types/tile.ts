@@ -97,6 +97,28 @@ export function tileToString(tile: Tile): string {
   }
 }
 
+// 牌を絵文字に変換（表示用）
+export function tileToEmoji(tile: Tile): string {
+  if (isNumberTile(tile)) {
+    const manzu = ['🀇', '🀈', '🀉', '🀊', '🀋', '🀌', '🀍', '🀎', '🀏']
+    const pinzu = ['🀙', '🀚', '🀛', '🀜', '🀝', '🀞', '🀟', '🀠', '🀡']
+    const souzu = ['🀐', '🀑', '🀒', '🀓', '🀔', '🀕', '🀖', '🀗', '🀘']
+    const map = { manzu, pinzu, souzu }
+    return map[tile.suit][tile.value - 1]
+  } else {
+    const honorEmoji: Record<Honor, string> = {
+      east: '🀀',
+      south: '🀁',
+      west: '🀂',
+      north: '🀃',
+      white: '🀆',
+      green: '🀅',
+      red: '🀄',
+    }
+    return honorEmoji[tile.honor]
+  }
+}
+
 // 牌のソート用キー
 export function tileToSortKey(tile: Tile): number {
   if (isNumberTile(tile)) {
