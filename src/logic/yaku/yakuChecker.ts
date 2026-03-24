@@ -63,23 +63,23 @@ export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Til
   // 役満（特殊形）
   if (isKokushi(tiles)) return [{ name: '国士無双', han: 13 }]
 
-  // 七対子（単独判定）
-  if (isChiitoitsu(tiles)) return [{ name: '七対子', han: 2 }]
-
   // 役満（通常形）: 全分解を確認
   const allParsed = parseAllHands(tiles)
-  if (allParsed.length === 0) return []
 
-  for (const parsed of allParsed) {
-    if (checkSuuankou(parsed)) return [{ name: '四暗刻', han: 13 }]
-    if (checkDaisangen(parsed)) return [{ name: '大三元', han: 13 }]
+  if (allParsed.length > 0) {
+    for (const parsed of allParsed) {
+      if (checkSuuankou(parsed)) return [{ name: '四暗刻', han: 13 }]
+      if (checkDaisangen(parsed)) return [{ name: '大三元', han: 13 }]
+    }
+    if (checkTsuuiisou(tiles)) return [{ name: '字一色', han: 13 }]
+    if (checkRyuuiisou(tiles)) return [{ name: '緑一色', han: 13 }]
+    if (checkChinroutou(tiles)) return [{ name: '清老頭', han: 13 }]
+    if (checkChuuren(tiles)) return [{ name: '九蓮宝燈', han: 13 }]
   }
-  if (checkTsuuiisou(tiles)) return [{ name: '字一色', han: 13 }]
-  if (checkRyuuiisou(tiles)) return [{ name: '緑一色', han: 13 }]
-  if (checkChinroutou(tiles)) return [{ name: '清老頭', han: 13 }]
-  if (checkChuuren(tiles)) return [{ name: '九蓮宝燈', han: 13 }]
 
-  // 通常役: 全分解を試し最高翻数の組み合わせを返す
+  // 七対子と通常役を両方評価して高い方を返す
+  const chiitoitsuYaku: Yaku[] = isChiitoitsu(tiles) ? [{ name: '七対子', han: 2 }] : []
+
   let bestYaku: Yaku[] = []
   for (const parsed of allParsed) {
     const yaku = checkYakuForParsed(parsed, tiles, context, winTile)
@@ -87,6 +87,11 @@ export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Til
       bestYaku = yaku
     }
   }
+
+  const chiitoitsuHan = chiitoitsuYaku.reduce((s, y) => s + y.han, 0)
+  const bestHan = bestYaku.reduce((s, y) => s + y.han, 0)
+
+  if (chiitoitsuHan > bestHan) return chiitoitsuYaku
   return bestYaku
 }
 
