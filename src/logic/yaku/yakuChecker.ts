@@ -63,18 +63,18 @@ export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Til
   // 役満（特殊形）
   if (isKokushi(tiles)) return [{ name: '国士無双', han: 13 }]
 
+  // 牌の構成だけで判定できる役満（七対子形も含む）
+  if (checkTsuuiisou(tiles)) return [{ name: '字一色', han: 13 }]
+  if (checkRyuuiisou(tiles)) return [{ name: '緑一色', han: 13 }]
+  if (checkChinroutou(tiles)) return [{ name: '清老頭', han: 13 }]
+  if (checkChuuren(tiles)) return [{ name: '九蓮宝燈', han: 13 }]
+
   // 役満（通常形）: 全分解を確認
   const allParsed = parseAllHands(tiles)
 
-  if (allParsed.length > 0) {
-    for (const parsed of allParsed) {
-      if (checkSuuankou(parsed)) return [{ name: '四暗刻', han: 13 }]
-      if (checkDaisangen(parsed)) return [{ name: '大三元', han: 13 }]
-    }
-    if (checkTsuuiisou(tiles)) return [{ name: '字一色', han: 13 }]
-    if (checkRyuuiisou(tiles)) return [{ name: '緑一色', han: 13 }]
-    if (checkChinroutou(tiles)) return [{ name: '清老頭', han: 13 }]
-    if (checkChuuren(tiles)) return [{ name: '九蓮宝燈', han: 13 }]
+  for (const parsed of allParsed) {
+    if (checkSuuankou(parsed)) return [{ name: '四暗刻', han: 13 }]
+    if (checkDaisangen(parsed)) return [{ name: '大三元', han: 13 }]
   }
 
   // 七対子と通常役を両方評価して高い方を返す
