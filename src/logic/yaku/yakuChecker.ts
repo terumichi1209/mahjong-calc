@@ -1,6 +1,6 @@
 import { Tile, Suit, Honor, isSimple, isNumberTile, isHonorTile } from '@/types/tile'
 import { Yaku } from '@/types/yaku'
-import { parseHand, ParsedHand } from '@/logic/parser/handParser'
+import { parseHand, ParsedHand, isChiitoitsu, isKokushi } from '@/logic/parser/handParser'
 
 export interface WindContext {
   bakaze: Honor // 場風
@@ -10,6 +10,17 @@ export interface WindContext {
 // 全ての役を判定
 export function checkAllYaku(tiles: Tile[], context?: WindContext): Yaku[] {
   const yaku: Yaku[] = []
+
+  // 特殊形（役満）
+  if (isKokushi(tiles)) {
+    return [{ name: '国士無双', han: 13 }]
+  }
+
+  // 七対子（単独判定）
+  if (isChiitoitsu(tiles)) {
+    return [{ name: '七対子', han: 2 }]
+  }
+
   const parsed = parseHand(tiles)
 
   if (!parsed) return yaku

@@ -1,4 +1,4 @@
-import { Tile, Suit, Honor, isNumberTile, isHonorTile } from '@/types/tile'
+import { Tile, Suit, Honor, isNumberTile, isHonorTile, isYaochuuhai } from '@/types/tile'
 
 // 面子の種類
 export interface Meld {
@@ -26,9 +26,38 @@ export interface ParsedHand {
 type SuitCounts = { [key in Suit]: number[] }
 type HonorCounts = { [key in Honor]: number }
 
-// 手牌が有効な形（4面子+1雀頭）かどうか検証
+// 七対子形かどうか
+export function isChiitoitsu(tiles: Tile[]): boolean {
+  if (tiles.length !== 14) return false
+  const counts = new Map<string, number>()
+  for (const tile of tiles) {
+    const key = isNumberTile(tile) ? `${tile.suit}-${tile.value}` : `honor-${tile.honor}`
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  const pairs = [...counts.values()].filter((c) => c >= 2)
+  return pairs.length === 7
+}
+
+// 国士無双形かどうか
+export function isKokushi(tiles: Tile[]): boolean {
+  if (tiles.length !== 14) return false
+  const yaochuuTypes = new Set<string>()
+  let hasExtraPair = false
+  for (const tile of tiles) {
+    if (!isYaochuuhai(tile)) return false
+    const key = isNumberTile(tile) ? `${tile.suit}-${tile.value}` : `honor-${tile.honor}`
+    if (yaochuuTypes.has(key)) {
+      hasExtraPair = true
+    } else {
+      yaochuuTypes.add(key)
+    }
+  }
+  return yaochuuTypes.size === 13 && hasExtraPair
+}
+
+// 手牌が有効な形（4面子+1雀頭 / 七対子 / 国士無双）かどうか検証
 export function isValidHand(tiles: Tile[]): boolean {
-  return parseHand(tiles) !== null
+  return parseHand(tiles) !== null || isChiitoitsu(tiles) || isKokushi(tiles)
 }
 
 // 手牌を分解して結果を返す（無効な場合はnull）
