@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar'
 import { useState, useEffect } from 'react'
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image } from 'react-native'
 import {
   Tile,
   Suit,
@@ -8,10 +8,10 @@ import {
   Honor,
   NumberTile,
   HonorTile,
-  tileToEmoji,
   tileToSortKey,
   isSameTile,
 } from '@/types/tile'
+import { TILE_IMAGES } from '@/assets/tileImages'
 import { checkAllYaku, WindContext } from '@/logic/yaku/yakuChecker'
 import {
   WinMethod,
@@ -75,6 +75,22 @@ export default function App() {
 
   const removeTileAt = (index: number) => {
     setSelectedTiles(selectedTiles.filter((_, i) => i !== index))
+  }
+
+  const tileImageKey = (tile: Tile): string => {
+    if (tile.type === 'number') {
+      const suit = { manzu: 'man', pinzu: 'pin', souzu: 'sou' }[tile.suit]
+      return `${suit}${tile.value}`
+    }
+    return {
+      east: 'east',
+      south: 'south',
+      west: 'west',
+      north: 'north',
+      white: 'haku',
+      green: 'hatsu',
+      red: 'chun',
+    }[tile.honor]
   }
 
   const clearAll = () => {
@@ -215,7 +231,7 @@ export default function App() {
                 style={styles.selectedTile}
                 onPress={() => removeTileAt(index)}
               >
-                <Text style={styles.tileText}>{tileToEmoji(tile)}</Text>
+                <Image source={TILE_IMAGES[tileImageKey(tile)]} style={styles.tileImage} />
               </TouchableOpacity>
             ))}
           </View>
@@ -373,23 +389,19 @@ const styles = StyleSheet.create({
   tilesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
-    minHeight: 50,
+    gap: 2,
+    minHeight: 40,
     backgroundColor: '#e8e8e8',
-    padding: 8,
+    padding: 4,
     borderRadius: 8,
   },
   selectedTile: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    padding: 0,
   },
-  tileText: {
-    fontSize: 16,
-    fontWeight: '500',
+  tileImage: {
+    width: 40,
+    height: 52,
+    resizeMode: 'contain',
   },
   pickerRow: {
     flexDirection: 'row',
@@ -399,14 +411,14 @@ const styles = StyleSheet.create({
   tileButton: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#ddd',
     alignItems: 'center',
   },
   tileButtonText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
   },
   actionContainer: {

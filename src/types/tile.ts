@@ -97,6 +97,26 @@ export function tileToString(tile: Tile): string {
   }
 }
 
+// 牌を漢字2行で表示するための上段・下段を返す
+export function tileToKanji(tile: Tile): { top: string; bottom: string } {
+  if (isNumberTile(tile)) {
+    const num = ['一', '二', '三', '四', '五', '六', '七', '八', '九'][tile.value - 1]
+    const suit = { manzu: '萬', pinzu: '筒', souzu: '索' }[tile.suit]
+    return { top: num, bottom: suit }
+  } else {
+    const label: Record<Honor, string> = {
+      east: '東',
+      south: '南',
+      west: '西',
+      north: '北',
+      white: '白',
+      green: '發',
+      red: '中',
+    }
+    return { top: label[tile.honor], bottom: '' }
+  }
+}
+
 // 牌を絵文字に変換（表示用）
 export function tileToEmoji(tile: Tile): string {
   if (isNumberTile(tile)) {
