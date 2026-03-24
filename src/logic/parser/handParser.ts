@@ -56,7 +56,7 @@ export function isKokushi(tiles: Tile[]): boolean {
 }
 
 // 手牌が有効な形（4面子+1雀頭 / 七対子 / 国士無双）かどうか検証
-export function isValidHand(tiles: Tile[]): boolean {
+function isValidHand(tiles: Tile[]): boolean {
   return parseHand(tiles) !== null || isChiitoitsu(tiles) || isKokushi(tiles)
 }
 
@@ -101,7 +101,7 @@ export function parseAllHands(tiles: Tile[]): ParsedHand[] {
 }
 
 // 手牌を分解して結果を返す（無効な場合はnull）
-export function parseHand(tiles: Tile[]): ParsedHand | null {
+function parseHand(tiles: Tile[]): ParsedHand | null {
   const all = parseAllHands(tiles)
   return all.length > 0 ? all[0] : null
 }

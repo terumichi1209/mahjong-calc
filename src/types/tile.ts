@@ -48,24 +48,6 @@ export function isYaochuuhai(tile: Tile): boolean {
   return isHonorTile(tile) || isTerminal(tile)
 }
 
-// 三元牌かどうか
-export function isDragon(tile: Tile): boolean {
-  return (
-    isHonorTile(tile) && (tile.honor === 'white' || tile.honor === 'green' || tile.honor === 'red')
-  )
-}
-
-// 風牌かどうか
-export function isWind(tile: Tile): boolean {
-  return (
-    isHonorTile(tile) &&
-    (tile.honor === 'east' ||
-      tile.honor === 'south' ||
-      tile.honor === 'west' ||
-      tile.honor === 'north')
-  )
-}
-
 // 牌が同じかどうか
 export function isSameTile(a: Tile, b: Tile): boolean {
   if (a.type !== b.type) return false
@@ -76,67 +58,6 @@ export function isSameTile(a: Tile, b: Tile): boolean {
     return a.honor === b.honor
   }
   return false
-}
-
-// 牌を文字列に変換（表示用）
-export function tileToString(tile: Tile): string {
-  if (isNumberTile(tile)) {
-    const suitChar = { manzu: 'm', pinzu: 'p', souzu: 's' }
-    return `${tile.value}${suitChar[tile.suit]}`
-  } else {
-    const honorChar: Record<Honor, string> = {
-      east: '東',
-      south: '南',
-      west: '西',
-      north: '北',
-      white: '白',
-      green: '發',
-      red: '中',
-    }
-    return honorChar[tile.honor]
-  }
-}
-
-// 牌を漢字2行で表示するための上段・下段を返す
-export function tileToKanji(tile: Tile): { top: string; bottom: string } {
-  if (isNumberTile(tile)) {
-    const num = ['一', '二', '三', '四', '五', '六', '七', '八', '九'][tile.value - 1]
-    const suit = { manzu: '萬', pinzu: '筒', souzu: '索' }[tile.suit]
-    return { top: num, bottom: suit }
-  } else {
-    const label: Record<Honor, string> = {
-      east: '東',
-      south: '南',
-      west: '西',
-      north: '北',
-      white: '白',
-      green: '發',
-      red: '中',
-    }
-    return { top: label[tile.honor], bottom: '' }
-  }
-}
-
-// 牌を絵文字に変換（表示用）
-export function tileToEmoji(tile: Tile): string {
-  if (isNumberTile(tile)) {
-    const manzu = ['🀇', '🀈', '🀉', '🀊', '🀋', '🀌', '🀍', '🀎', '🀏']
-    const pinzu = ['🀙', '🀚', '🀛', '🀜', '🀝', '🀞', '🀟', '🀠', '🀡']
-    const souzu = ['🀐', '🀑', '🀒', '🀓', '🀔', '🀕', '🀖', '🀗', '🀘']
-    const map = { manzu, pinzu, souzu }
-    return map[tile.suit][tile.value - 1]
-  } else {
-    const honorEmoji: Record<Honor, string> = {
-      east: '🀀',
-      south: '🀁',
-      west: '🀂',
-      north: '🀃',
-      white: '🀆',
-      green: '🀅',
-      red: '🀄',
-    }
-    return honorEmoji[tile.honor]
-  }
 }
 
 // 牌のソート用キー

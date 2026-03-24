@@ -10,15 +10,6 @@ import {
 export type WinMethod = 'ron' | 'tsumo'
 export type WaitType = 'ryanmen' | 'shanpon' | 'kanchan' | 'penchan' | 'tanki'
 
-// 待ちの日本語表記
-export const WAIT_TYPE_LABELS: Record<WaitType, string> = {
-  ryanmen: '両面',
-  shanpon: '双碰',
-  kanchan: '嵌張',
-  penchan: '辺張',
-  tanki: '単騎',
-}
-
 // 和了牌からの待ち自動判定
 function pairMatchesTile(pair: Pair, tile: Tile): boolean {
   if (isNumberTile(tile)) return pair.suit === tile.suit && pair.value === tile.value
@@ -48,15 +39,6 @@ export function detectWaitType(tiles: Tile[], winTile: Tile, ankans: Tile[] = []
     }
   }
   return 'ryanmen'
-}
-
-// 点数計算結果
-export interface ScoreResult {
-  han: number
-  fu: number
-  score: number
-  label: string // 点数の呼称（満貫など）
-  yaku: string[]
 }
 
 // 符計算
@@ -111,7 +93,7 @@ function getScoreLabel(han: number, basePoints: number): string {
 }
 
 // 子のロン点数
-export function calcRonScore(han: number, fu: number): number {
+function calcRonScore(han: number, fu: number): number {
   const base = fu * Math.pow(2, han + 2)
   if (han >= 13) return 32000
   if (han >= 11) return 24000
@@ -122,7 +104,7 @@ export function calcRonScore(han: number, fu: number): number {
 }
 
 // 子のツモ：[子払い, 親払い]
-export function calcTsumoScore(han: number, fu: number): [number, number] {
+function calcTsumoScore(han: number, fu: number): [number, number] {
   const base = fu * Math.pow(2, han + 2)
   if (han >= 13) return [8000, 16000]
   if (han >= 11) return [6000, 12000]
