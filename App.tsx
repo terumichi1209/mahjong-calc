@@ -126,14 +126,14 @@ export default function App() {
       const windContext: WindContext = { bakaze, jikaze }
       const yaku = checkAllYaku(allTiles, windContext, winTile)
       const isChiitoitsu = yaku.some((y) => y.name === '七対子')
-      const isKokushiYaku = yaku.some((y) => y.name === '国士無双')
+      const isYakuman = yaku.some((y) => y.han >= 13)
 
       if (yaku.length > 0) {
         const totalHan = yaku.reduce((sum, y) => sum + y.han, 0)
-        const lines = yaku.map((y) => `${y.name}  ${y.han}翻`)
+        const lines = yaku.map((y) => `${y.name}  ${y.han >= 13 ? '役満' : `${y.han}翻`}`)
 
         let scoreStr: string
-        if (isKokushiYaku || isChiitoitsu) {
+        if (isYakuman || isChiitoitsu) {
           scoreStr = buildScoreString(totalHan, 25, winMethod, isChiitoitsu)
         } else {
           const parsed = parseHand(allTiles)

@@ -58,24 +58,39 @@ function checkYakuForParsed(
   return yaku
 }
 
-// 全ての役を判定
+// 役満の複合判定
 export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Tile): Yaku[] {
-  // 役満（特殊形）
   if (isKokushi(tiles)) return [{ name: '国士無双', han: 13 }]
 
-  // 牌の構成だけで判定できる役満（七対子形も含む）
-  if (checkTsuuiisou(tiles)) return [{ name: '字一色', han: 13 }]
-  if (checkRyuuiisou(tiles)) return [{ name: '緑一色', han: 13 }]
-  if (checkChinroutou(tiles)) return [{ name: '清老頭', han: 13 }]
-  if (checkChuuren(tiles)) return [{ name: '九蓮宝燈', han: 13 }]
-
-  // 役満（通常形）: 全分解を確認
   const allParsed = parseAllHands(tiles)
+  const yakuman: Yaku[] = []
 
+  // 牌構成による役満（七対子形も含む）
+  if (checkTsuuiisou(tiles)) yakuman.push({ name: '字一色', han: 13 })
+  if (checkRyuuiisou(tiles)) yakuman.push({ name: '緑一色', han: 13 })
+  if (checkChinroutou(tiles)) yakuman.push({ name: '清老頭', han: 13 })
+  if (checkChuuren(tiles)) yakuman.push({ name: '九蓮宝燈', han: 13 })
+
+  // 面子構成による役満
   for (const parsed of allParsed) {
-    if (checkSuuankou(parsed)) return [{ name: '四暗刻', han: 13 }]
-    if (checkDaisangen(parsed)) return [{ name: '大三元', han: 13 }]
+    if (checkSuuankou(parsed)) {
+      const isTanki =
+        winTile &&
+        (isNumberTile(winTile)
+          ? parsed.pair.suit === winTile.suit && parsed.pair.value === winTile.value
+          : parsed.pair.honor === (winTile as { honor: Honor }).honor)
+      yakuman.push({ name: isTanki ? '四暗刻単騎' : '四暗刻', han: isTanki ? 26 : 13 })
+      break
+    }
   }
+  for (const parsed of allParsed) {
+    if (checkDaisangen(parsed)) {
+      yakuman.push({ name: '大三元', han: 13 })
+      break
+    }
+  }
+
+  if (yakuman.length > 0) return yakuman
 
   // 七対子と通常役を両方評価して高い方を返す
   const chiitoitsuYaku: Yaku[] = isChiitoitsu(tiles) ? [{ name: '七対子', han: 2 }] : []
