@@ -47,6 +47,7 @@ export default function App() {
   const [bakaze, setBakaze] = useState<Honor>('east')
   const [jikaze, setJikaze] = useState<Honor>('east')
   const [winMethod, setWinMethod] = useState<WinMethod>('ron')
+  const [riichi, setRiichi] = useState(false)
 
   const totalCount = handTiles.length + (winTile ? 1 : 0)
 
@@ -107,6 +108,7 @@ export default function App() {
   const clearAll = () => {
     setHandTiles([])
     setWinTile(null)
+    setRiichi(false)
     setYakuLines([])
     setScoreLine(null)
     setIsSuccess(false)
@@ -125,6 +127,7 @@ export default function App() {
 
       const windContext: WindContext = { bakaze, jikaze }
       const yaku = checkAllYaku(allTiles, windContext, winTile)
+      if (riichi) yaku.push({ name: 'リーチ', han: 1 })
       const isChiitoitsu = yaku.some((y) => y.name === '七対子')
       const isYakuman = yaku.some((y) => y.han >= 13)
 
@@ -155,7 +158,7 @@ export default function App() {
       setScoreLine(null)
       setIsSuccess(false)
     }
-  }, [handTiles, winTile, bakaze, jikaze, winMethod])
+  }, [handTiles, winTile, bakaze, jikaze, winMethod, riichi])
 
   return (
     <View style={styles.container}>
@@ -263,6 +266,13 @@ export default function App() {
                 </Text>
               </TouchableOpacity>
             ))}
+            <Text style={styles.sideLabel}>役</Text>
+            <TouchableOpacity
+              style={[styles.sideMethodBtn, riichi && styles.sideBtnActive]}
+              onPress={() => setRiichi(!riichi)}
+            >
+              <Text style={[styles.sideBtnText, riichi && styles.sideBtnTextActive]}>リーチ</Text>
+            </TouchableOpacity>
           </View>
         </View>
 

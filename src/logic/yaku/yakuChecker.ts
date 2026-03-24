@@ -53,6 +53,8 @@ function checkYakuForParsed(
   if (ryanpeikouCount === 2) yaku.push({ name: '二盃口', han: 3 })
   else if (ryanpeikouCount === 1) yaku.push({ name: '一盃口', han: 1 })
 
+  if (checkShousangen(parsed)) yaku.push({ name: '小三元', han: 2 })
+
   if (checkSanshoku(parsed)) yaku.push({ name: '三色同順', han: 2 })
   if (checkSanshokuDoukou(parsed)) yaku.push({ name: '三色同刻', han: 2 })
   if (checkIttsu(parsed)) yaku.push({ name: '一気通貫', han: 2 })
@@ -232,6 +234,16 @@ function countRyanpeikou(parsed: ParsedHand): number {
     }
   }
   return pairCount
+}
+
+// 小三元: 三元牌2種の刻子＋残り1種の雀頭
+function checkShousangen(parsed: ParsedHand): boolean {
+  const dragons: Honor[] = ['white', 'green', 'red']
+  const dragonKoutsu = parsed.melds.filter(
+    (m) => m.type === 'koutsu' && m.honor !== undefined && dragons.includes(m.honor)
+  )
+  if (dragonKoutsu.length !== 2) return false
+  return parsed.pair.honor !== undefined && dragons.includes(parsed.pair.honor)
 }
 
 // 三色同順: 3色で同じ数字の順子
