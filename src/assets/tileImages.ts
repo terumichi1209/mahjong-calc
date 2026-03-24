@@ -1,4 +1,5 @@
 import { ImageSourcePropType } from 'react-native'
+import { Tile, isNumberTile } from '@/types/tile'
 
 export const TILE_IMAGES: Record<string, ImageSourcePropType> = {
   man1: require('../../assets/tiles/man1.png'),
@@ -35,4 +36,20 @@ export const TILE_IMAGES: Record<string, ImageSourcePropType> = {
   haku: require('../../assets/tiles/haku.png'),
   hatsu: require('../../assets/tiles/hatsu.png'),
   chun: require('../../assets/tiles/chun.png'),
+}
+
+export function tileImageKey(tile: Tile): string {
+  if (isNumberTile(tile)) {
+    const suit = { manzu: 'man', pinzu: 'pin', souzu: 'sou' }[tile.suit]
+    return `${suit}${tile.value}`
+  }
+  return {
+    east: 'east',
+    south: 'south',
+    west: 'west',
+    north: 'north',
+    white: 'haku',
+    green: 'hatsu',
+    red: 'chun',
+  }[tile.honor]
 }

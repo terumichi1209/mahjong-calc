@@ -1,25 +1,9 @@
 import { StatusBar } from 'expo-status-bar'
-import { useState, useEffect } from 'react'
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image } from 'react-native'
-import {
-  Tile,
-  Suit,
-  TileValue,
-  Honor,
-  NumberTile,
-  HonorTile,
-  tileToSortKey,
-  isSameTile,
-} from '@/types/tile'
-import { TILE_IMAGES } from '@/assets/tileImages'
-import { checkAllYaku, WindContext } from '@/logic/yaku/yakuChecker'
-import {
-  WinMethod,
-  calculateFu,
-  buildScoreString,
-  detectWaitType,
-} from '@/logic/score/scoreCalculator'
-import { isValidHandWithKans, parseAllHandsWithKans } from '@/logic/parser/handParser'
+import { Suit, TileValue, Honor } from '@/types/tile'
+import { TILE_IMAGES, tileImageKey } from '@/assets/tileImages'
+import { WinMethod } from '@/logic/score/scoreCalculator'
+import { useMahjongCalc } from '@/hooks/useMahjongCalc'
 
 const HONORS: { honor: Honor; label: string }[] = [
   { honor: 'east', label: '東' },
@@ -39,160 +23,31 @@ const WINDS: { honor: Honor; label: string }[] = [
 ]
 
 export default function App() {
-  const [handTiles, setHandTiles] = useState<Tile[]>([])
-  const [winTile, setWinTile] = useState<Tile | null>(null)
-  const [yakuLines, setYakuLines] = useState<string[]>([])
-  const [scoreLine, setScoreLine] = useState<string | null>(null)
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [bakaze, setBakaze] = useState<Honor>('east')
-  const [jikaze, setJikaze] = useState<Honor>('east')
-  const [winMethod, setWinMethod] = useState<WinMethod>('ron')
-  const [riichi, setRiichi] = useState(false)
-  const [ankans, setAnkans] = useState<Tile[]>([])
-  const [isKanMode, setIsKanMode] = useState(false)
+  const {
+    handTiles,
+    winTile,
+    ankans,
+    isKanMode,
+    bakaze,
+    jikaze,
+    winMethod,
+    riichi,
+    totalCount,
+    result,
+    selectNumberTile,
+    selectHonorTile,
+    removeHandTile,
+    removeWinTile,
+    removeAnkan,
+    clearAll,
+    setBakaze,
+    setJikaze,
+    setWinMethod,
+    setRiichi,
+    setIsKanMode,
+  } = useMahjongCalc()
 
-  const handSizeTarget = 13 - ankans.length * 3
-  const totalCount = handTiles.length + (winTile ? 1 : 0) + ankans.length * 4
-
-  const countTile = (tile: Tile) => {
-    const inHand = handTiles.filter((t) => isSameTile(t, tile)).length
-    const inWin = winTile && isSameTile(winTile, tile) ? 1 : 0
-    const inKan = ankans.filter((t) => isSameTile(t, tile)).length * 4
-    return inHand + inWin + inKan
-  }
-
-  const sortTiles = (tiles: Tile[]): Tile[] => {
-    return [...tiles].sort((a, b) => tileToSortKey(a) - tileToSortKey(b))
-  }
-
-  const selectKanTile = (tile: Tile) => {
-    if (ankans.length >= 4) return
-    if (ankans.some((t) => isSameTile(t, tile))) return
-    // 既存の同種牌を手牌・和了牌から除去してカンとして宣言
-    const newHandTiles = handTiles.filter((t) => !isSameTile(t, tile))
-    const newWinTile = winTile && isSameTile(winTile, tile) ? null : winTile
-    setHandTiles(newHandTiles)
-    setWinTile(newWinTile)
-    setAnkans([...ankans, tile])
-    setIsKanMode(false)
-  }
-
-  const selectNumberTile = (suit: Suit, value: TileValue) => {
-    const tile: NumberTile = { type: 'number', suit, value }
-    if (isKanMode) {
-      selectKanTile(tile)
-      return
-    }
-    if (countTile(tile) >= 4) return
-    if (handTiles.length < handSizeTarget) {
-      setHandTiles(sortTiles([...handTiles, tile]))
-    } else if (!winTile) {
-      setWinTile(tile)
-    }
-  }
-
-  const selectHonorTile = (honor: Honor) => {
-    const tile: HonorTile = { type: 'honor', honor }
-    if (isKanMode) {
-      selectKanTile(tile)
-      return
-    }
-    if (countTile(tile) >= 4) return
-    if (handTiles.length < handSizeTarget) {
-      setHandTiles(sortTiles([...handTiles, tile]))
-    } else if (!winTile) {
-      setWinTile(tile)
-    }
-  }
-
-  const removeHandTile = (index: number) => {
-    setHandTiles(handTiles.filter((_, i) => i !== index))
-  }
-
-  const removeWinTile = () => {
-    setWinTile(null)
-  }
-
-  const removeAnkan = (index: number) => {
-    const tile = ankans[index]
-    const fourCopies: Tile[] = [tile, tile, tile, tile]
-    setHandTiles(sortTiles([...handTiles, ...fourCopies]))
-    setAnkans(ankans.filter((_, i) => i !== index))
-  }
-
-  const tileImageKey = (tile: Tile): string => {
-    if (tile.type === 'number') {
-      const suit = { manzu: 'man', pinzu: 'pin', souzu: 'sou' }[tile.suit]
-      return `${suit}${tile.value}`
-    }
-    return {
-      east: 'east',
-      south: 'south',
-      west: 'west',
-      north: 'north',
-      white: 'haku',
-      green: 'hatsu',
-      red: 'chun',
-    }[tile.honor]
-  }
-
-  const clearAll = () => {
-    setHandTiles([])
-    setWinTile(null)
-    setAnkans([])
-    setIsKanMode(false)
-    setRiichi(false)
-    setYakuLines([])
-    setScoreLine(null)
-    setIsSuccess(false)
-  }
-
-  // 手牌が揃ったら自動計算
-  useEffect(() => {
-    if (handTiles.length === handSizeTarget && winTile) {
-      const nonKanTiles = [...handTiles, winTile]
-      if (!isValidHandWithKans(nonKanTiles, ankans)) {
-        setYakuLines(['無効な手牌（4面子+1雀頭の形になっていません）'])
-        setScoreLine(null)
-        setIsSuccess(false)
-        return
-      }
-
-      const windContext: WindContext = { bakaze, jikaze }
-      const yaku = checkAllYaku(nonKanTiles, windContext, winTile, ankans)
-      if (riichi) yaku.push({ name: 'リーチ', han: 1 })
-      const isChiitoitsu = yaku.some((y) => y.name === '七対子')
-      const isYakuman = yaku.some((y) => y.han >= 13)
-
-      if (yaku.length > 0) {
-        const totalHan = yaku.reduce((sum, y) => sum + y.han, 0)
-        const lines = yaku.map((y) => `${y.name}  ${y.han >= 13 ? '役満' : `${y.han}翻`}`)
-
-        let scoreStr: string
-        if (isYakuman || isChiitoitsu) {
-          scoreStr = buildScoreString(totalHan, 25, winMethod, isChiitoitsu)
-        } else {
-          const parsedHands = parseAllHandsWithKans(nonKanTiles, ankans)
-          const parsed = parsedHands.length > 0 ? parsedHands[0] : null
-          const waitType = detectWaitType(nonKanTiles, winTile, ankans)
-          const fu = parsed ? calculateFu(parsed, winMethod, waitType, bakaze, jikaze) : 30
-          scoreStr = buildScoreString(totalHan, fu, winMethod)
-        }
-
-        setYakuLines(lines)
-        setScoreLine(scoreStr)
-        setIsSuccess(true)
-      } else {
-        setYakuLines(['役なし'])
-        setScoreLine(null)
-        setIsSuccess(false)
-      }
-    } else {
-      setYakuLines([])
-      setScoreLine(null)
-      setIsSuccess(false)
-    }
-  }, [handTiles, winTile, ankans, bakaze, jikaze, winMethod, riichi])
+  const { yakuLines, scoreLine, isSuccess } = result
 
   return (
     <View style={styles.container}>
