@@ -13,8 +13,14 @@ import {
   isSameTile,
 } from '@/types/tile'
 import { checkAllYaku, WindContext } from '@/logic/yaku/yakuChecker'
-import { calculateScore } from '@/logic/score/scoreCalculator'
-import { isValidHand } from '@/logic/parser/handParser'
+import {
+  WinMethod,
+  WaitType,
+  WAIT_TYPE_LABELS,
+  calculateFu,
+  buildScoreString,
+} from '@/logic/score/scoreCalculator'
+import { isValidHand, parseHand } from '@/logic/parser/handParser'
 
 const HONORS: { honor: Honor; label: string }[] = [
   { honor: 'east', label: '東' },
@@ -39,6 +45,8 @@ export default function App() {
   const [isSuccess, setIsSuccess] = useState(false)
   const [bakaze, setBakaze] = useState<Honor>('east')
   const [jikaze, setJikaze] = useState<Honor>('east')
+  const [winMethod, setWinMethod] = useState<WinMethod>('ron')
+  const [waitType, setWaitType] = useState<WaitType>('ryanmen')
 
   // 指定の牌が何枚選択されているか
   const countTile = (tile: Tile) => {
@@ -83,12 +91,23 @@ export default function App() {
 
       const windContext: WindContext = { bakaze, jikaze }
       const yaku = checkAllYaku(selectedTiles, windContext)
+      const isChiitoitsu = yaku.some((y) => y.name === '七対子')
+      const isKokushi = yaku.some((y) => y.name === '国士無双')
 
       if (yaku.length > 0) {
         const totalHan = yaku.reduce((sum, y) => sum + y.han, 0)
-        const yakuNames = yaku.map((y) => `${y.name}(${y.han}翻)`).join(' ')
-        const score = calculateScore(totalHan, 30)
-        setResult(`${yakuNames}\n${totalHan}翻30符 ${score}点`)
+        const yakuNames = yaku.map((y) => `${y.name}(${y.han}翻)`).join(' / ')
+
+        let scoreStr: string
+        if (isKokushi || isChiitoitsu) {
+          scoreStr = buildScoreString(totalHan, 25, winMethod, isChiitoitsu)
+        } else {
+          const parsed = parseHand(selectedTiles)
+          const fu = parsed ? calculateFu(parsed, winMethod, waitType, bakaze, jikaze) : 30
+          scoreStr = buildScoreString(totalHan, fu, winMethod)
+        }
+
+        setResult(`${yakuNames}\n${scoreStr}`)
         setIsSuccess(true)
       } else {
         setResult('役なし')
@@ -98,7 +117,7 @@ export default function App() {
       setResult(null)
       setIsSuccess(false)
     }
-  }, [selectedTiles, bakaze, jikaze])
+  }, [selectedTiles, bakaze, jikaze, winMethod, waitType])
 
   return (
     <View style={styles.container}>
@@ -135,6 +154,44 @@ export default function App() {
                   style={[styles.windButtonText, jikaze === honor && styles.windButtonTextActive]}
                 >
                   {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.windContainer}>
+          <View style={styles.windRow}>
+            <Text style={styles.windLabel}>和了</Text>
+            {(['ron', 'tsumo'] as WinMethod[]).map((method) => (
+              <TouchableOpacity
+                key={method}
+                style={[styles.windButton, winMethod === method && styles.windButtonActive]}
+                onPress={() => setWinMethod(method)}
+              >
+                <Text
+                  style={[
+                    styles.windButtonText,
+                    winMethod === method && styles.windButtonTextActive,
+                  ]}
+                >
+                  {method === 'ron' ? 'ロン' : 'ツモ'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.windRow}>
+            <Text style={styles.windLabel}>待ち</Text>
+            {(Object.keys(WAIT_TYPE_LABELS) as WaitType[]).map((wt) => (
+              <TouchableOpacity
+                key={wt}
+                style={[styles.windButton, waitType === wt && styles.windButtonActive]}
+                onPress={() => setWaitType(wt)}
+              >
+                <Text
+                  style={[styles.windButtonText, waitType === wt && styles.windButtonTextActive]}
+                >
+                  {WAIT_TYPE_LABELS[wt]}
                 </Text>
               </TouchableOpacity>
             ))}
