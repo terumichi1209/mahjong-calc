@@ -1,4 +1,14 @@
-import { Tile, Suit, Honor, isSimple, isNumberTile, isHonorTile, isTerminal } from '@/types/tile'
+import {
+  Tile,
+  Suit,
+  Honor,
+  isSimple,
+  isNumberTile,
+  isHonorTile,
+  isTerminal,
+  isYaochuuhai,
+  isSameTile,
+} from '@/types/tile'
 import { Yaku } from '@/types/yaku'
 import { parseAllHands, ParsedHand, isChiitoitsu, isKokushi } from '@/logic/parser/handParser'
 
@@ -60,7 +70,22 @@ function checkYakuForParsed(
 
 // 役満の複合判定
 export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Tile): Yaku[] {
-  if (isKokushi(tiles)) return [{ name: '国士無双', han: 13 }]
+  if (isKokushi(tiles)) {
+    const is13sided =
+      winTile &&
+      (() => {
+        const hand13 = [...tiles]
+        const idx = hand13.findIndex((t) => isSameTile(t, winTile))
+        if (idx === -1) return false
+        hand13.splice(idx, 1)
+        if (!hand13.every(isYaochuuhai)) return false
+        const keys = hand13.map((t) =>
+          isNumberTile(t) ? `${t.suit}-${t.value}` : `honor-${(t as { honor: string }).honor}`
+        )
+        return new Set(keys).size === 13
+      })()
+    return [{ name: is13sided ? '国士無双十三面' : '国士無双', han: is13sided ? 26 : 13 }]
+  }
 
   const allParsed = parseAllHands(tiles)
   const yakuman: Yaku[] = []
