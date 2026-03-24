@@ -163,63 +163,6 @@ export default function App() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>麻雀点数計算</Text>
 
-        <View style={styles.windContainer}>
-          <View style={styles.windRow}>
-            <Text style={styles.windLabel}>場風</Text>
-            {WINDS.map(({ honor, label }) => (
-              <TouchableOpacity
-                key={honor}
-                style={[styles.windButton, bakaze === honor && styles.windButtonActive]}
-                onPress={() => setBakaze(honor)}
-              >
-                <Text
-                  style={[styles.windButtonText, bakaze === honor && styles.windButtonTextActive]}
-                >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.windRow}>
-            <Text style={styles.windLabel}>自風</Text>
-            {WINDS.map(({ honor, label }) => (
-              <TouchableOpacity
-                key={honor}
-                style={[styles.windButton, jikaze === honor && styles.windButtonActive]}
-                onPress={() => setJikaze(honor)}
-              >
-                <Text
-                  style={[styles.windButtonText, jikaze === honor && styles.windButtonTextActive]}
-                >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.windContainer}>
-          <View style={styles.windRow}>
-            <Text style={styles.windLabel}>和了</Text>
-            {(['ron', 'tsumo'] as WinMethod[]).map((method) => (
-              <TouchableOpacity
-                key={method}
-                style={[styles.windButton, winMethod === method && styles.windButtonActive]}
-                onPress={() => setWinMethod(method)}
-              >
-                <Text
-                  style={[
-                    styles.windButtonText,
-                    winMethod === method && styles.windButtonTextActive,
-                  ]}
-                >
-                  {method === 'ron' ? 'ロン' : 'ツモ'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
         <View style={styles.handContainer}>
           <Text style={styles.label}>手牌 ({totalCount}/14)</Text>
           <View style={styles.tilesRow}>
@@ -243,52 +186,84 @@ export default function App() {
           </View>
         </View>
 
-        <View style={styles.pickerRow}>
-          {([1, 2, 3, 4, 5, 6, 7, 8, 9] as TileValue[]).map((value) => (
-            <TouchableOpacity
-              key={value}
-              style={styles.tileButton}
-              onPress={() => selectNumberTile('manzu', value)}
-            >
-              <Text style={styles.tileButtonText}>{value}m</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <View style={styles.pickerWithControls}>
+          <View style={styles.pickerColumn}>
+            {(['manzu', 'pinzu', 'souzu'] as Suit[]).map((suit) => (
+              <View key={suit} style={styles.pickerRow}>
+                {([1, 2, 3, 4, 5, 6, 7, 8, 9] as TileValue[]).map((value) => (
+                  <TouchableOpacity
+                    key={value}
+                    style={styles.tileButton}
+                    onPress={() => selectNumberTile(suit, value)}
+                  >
+                    <Image
+                      source={TILE_IMAGES[tileImageKey({ type: 'number', suit, value })]}
+                      style={styles.tileButtonImage}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+            <View style={styles.pickerRow}>
+              {HONORS.map(({ honor }) => (
+                <TouchableOpacity
+                  key={honor}
+                  style={styles.tileButton}
+                  onPress={() => selectHonorTile(honor)}
+                >
+                  <Image
+                    source={TILE_IMAGES[tileImageKey({ type: 'honor', honor })]}
+                    style={styles.tileButtonImage}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
-        <View style={styles.pickerRow}>
-          {([1, 2, 3, 4, 5, 6, 7, 8, 9] as TileValue[]).map((value) => (
-            <TouchableOpacity
-              key={value}
-              style={styles.tileButton}
-              onPress={() => selectNumberTile('pinzu', value)}
-            >
-              <Text style={styles.tileButtonText}>{value}p</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.pickerRow}>
-          {([1, 2, 3, 4, 5, 6, 7, 8, 9] as TileValue[]).map((value) => (
-            <TouchableOpacity
-              key={value}
-              style={styles.tileButton}
-              onPress={() => selectNumberTile('souzu', value)}
-            >
-              <Text style={styles.tileButtonText}>{value}s</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.pickerRow}>
-          {HONORS.map(({ honor, label }) => (
-            <TouchableOpacity
-              key={honor}
-              style={styles.tileButton}
-              onPress={() => selectHonorTile(honor)}
-            >
-              <Text style={styles.tileButtonText}>{label}</Text>
-            </TouchableOpacity>
-          ))}
+          <View style={styles.sideControls}>
+            <Text style={styles.sideLabel}>場風</Text>
+            <View style={styles.sideWindGrid}>
+              {WINDS.map(({ honor, label }) => (
+                <TouchableOpacity
+                  key={honor}
+                  style={[styles.sideBtn, bakaze === honor && styles.sideBtnActive]}
+                  onPress={() => setBakaze(honor)}
+                >
+                  <Text style={[styles.sideBtnText, bakaze === honor && styles.sideBtnTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.sideLabel}>自風</Text>
+            <View style={styles.sideWindGrid}>
+              {WINDS.map(({ honor, label }) => (
+                <TouchableOpacity
+                  key={honor}
+                  style={[styles.sideBtn, jikaze === honor && styles.sideBtnActive]}
+                  onPress={() => setJikaze(honor)}
+                >
+                  <Text style={[styles.sideBtnText, jikaze === honor && styles.sideBtnTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.sideLabel}>和了</Text>
+            {(['ron', 'tsumo'] as WinMethod[]).map((method) => (
+              <TouchableOpacity
+                key={method}
+                style={[styles.sideMethodBtn, winMethod === method && styles.sideBtnActive]}
+                onPress={() => setWinMethod(method)}
+              >
+                <Text
+                  style={[styles.sideBtnText, winMethod === method && styles.sideBtnTextActive]}
+                >
+                  {method === 'ron' ? 'ロン' : 'ツモ'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View style={styles.actionContainer}>
@@ -354,41 +329,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: '#333',
   },
-  windContainer: {
-    marginBottom: 16,
-  },
-  windRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  windLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    width: 30,
-  },
-  windButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
-  },
-  windButtonActive: {
-    backgroundColor: '#1976D2',
-    borderColor: '#1976D2',
-  },
-  windButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  windButtonTextActive: {
-    color: '#fff',
-  },
   handContainer: {
     marginBottom: 24,
   },
@@ -402,7 +342,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   selectedTile: {
-    padding: 0,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#999',
+    borderRadius: 3,
   },
   winTileSeparator: {
     width: 2,
@@ -417,27 +360,81 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   tileImage: {
-    width: 40,
-    height: 52,
+    width: 28,
+    height: 37,
     resizeMode: 'contain',
+  },
+  pickerWithControls: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  pickerColumn: {
+    flex: 1,
   },
   pickerRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 8,
+    gap: 3,
+    marginBottom: 4,
   },
   tileButton: {
-    flex: 1,
+    alignItems: 'center',
     backgroundColor: '#fff',
-    paddingVertical: 16,
-    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#999',
+    borderRadius: 3,
+  },
+  tileButtonImage: {
+    width: 34,
+    height: 44,
+    resizeMode: 'contain',
+  },
+  sideControls: {
+    width: 68,
+  },
+  sideLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#555',
+    marginTop: 6,
+    marginBottom: 3,
+  },
+  sideWindGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 3,
+  },
+  sideBtn: {
+    width: 30,
+    height: 24,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: '#ddd',
+    backgroundColor: '#fff',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  tileButtonText: {
-    fontSize: 18,
+  sideBtnActive: {
+    backgroundColor: '#1976D2',
+    borderColor: '#1976D2',
+  },
+  sideBtnText: {
+    fontSize: 12,
     fontWeight: '600',
+    color: '#333',
+  },
+  sideBtnTextActive: {
+    color: '#fff',
+  },
+  sideMethodBtn: {
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 3,
   },
   actionContainer: {
     flexDirection: 'row',
