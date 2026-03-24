@@ -10,7 +10,13 @@ import {
   isSameTile,
 } from '@/types/tile'
 import { Yaku } from '@/types/yaku'
-import { parseAllHands, ParsedHand, isChiitoitsu, isKokushi } from '@/logic/parser/handParser'
+import {
+  parseAllHands,
+  parseAllHandsWithKans,
+  ParsedHand,
+  isChiitoitsu,
+  isKokushi,
+} from '@/logic/parser/handParser'
 
 export interface WindContext {
   bakaze: Honor // 場風
@@ -60,6 +66,7 @@ function checkYakuForParsed(
   if (checkIttsu(parsed)) yaku.push({ name: '一気通貫', han: 2 })
   if (checkToitoi(parsed)) yaku.push({ name: '対々和', han: 2 })
   if (checkSanankou(parsed)) yaku.push({ name: '三暗刻', han: 2 })
+  if (checkSankantsu(parsed)) yaku.push({ name: '三槓子', han: 2 })
 
   if (checkJunchan(parsed)) yaku.push({ name: '純全帯幺九', han: 3 })
   else if (checkChanta(parsed)) yaku.push({ name: '混全帯幺九', han: 2 })
@@ -71,8 +78,16 @@ function checkYakuForParsed(
 }
 
 // 役満の複合判定
-export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Tile): Yaku[] {
-  if (isKokushi(tiles)) {
+export function checkAllYaku(
+  tiles: Tile[],
+  context?: WindContext,
+  winTile?: Tile,
+  ankans: Tile[] = []
+): Yaku[] {
+  // 暗カンあり手牌では全牌を展開
+  const allTiles = ankans.length > 0 ? [...tiles, ...ankans.flatMap((t) => [t, t, t, t])] : tiles
+
+  if (ankans.length === 0 && isKokushi(tiles)) {
     const is13sided =
       winTile &&
       (() => {
@@ -89,16 +104,22 @@ export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Til
     return [{ name: is13sided ? '国士無双十三面' : '国士無双', han: is13sided ? 26 : 13 }]
   }
 
-  const allParsed = parseAllHands(tiles)
+  const allParsed = ankans.length > 0 ? parseAllHandsWithKans(tiles, ankans) : parseAllHands(tiles)
   const yakuman: Yaku[] = []
 
   // 牌構成による役満（七対子形も含む）
-  if (checkTsuuiisou(tiles)) yakuman.push({ name: '字一色', han: 13 })
-  if (checkRyuuiisou(tiles)) yakuman.push({ name: '緑一色', han: 13 })
-  if (checkChinroutou(tiles)) yakuman.push({ name: '清老頭', han: 13 })
-  if (checkChuuren(tiles)) yakuman.push({ name: '九蓮宝燈', han: 13 })
+  if (checkTsuuiisou(allTiles)) yakuman.push({ name: '字一色', han: 13 })
+  if (checkRyuuiisou(allTiles)) yakuman.push({ name: '緑一色', han: 13 })
+  if (checkChinroutou(allTiles)) yakuman.push({ name: '清老頭', han: 13 })
+  if (checkChuuren(allTiles)) yakuman.push({ name: '九蓮宝燈', han: 13 })
 
   // 面子構成による役満
+  for (const parsed of allParsed) {
+    if (checkSuukantsu(parsed)) {
+      yakuman.push({ name: '四槓子', han: 13 })
+      break
+    }
+  }
   for (const parsed of allParsed) {
     if (checkSuuankou(parsed)) {
       const isTanki =
@@ -119,12 +140,13 @@ export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Til
 
   if (yakuman.length > 0) return yakuman
 
-  // 七対子と通常役を両方評価して高い方を返す
-  const chiitoitsuYaku: Yaku[] = isChiitoitsu(tiles) ? [{ name: '七対子', han: 2 }] : []
+  // 七対子と通常役を両方評価して高い方を返す（暗カンなしのみ）
+  const chiitoitsuYaku: Yaku[] =
+    ankans.length === 0 && isChiitoitsu(tiles) ? [{ name: '七対子', han: 2 }] : []
 
   let bestYaku: Yaku[] = []
   for (const parsed of allParsed) {
-    const yaku = checkYakuForParsed(parsed, tiles, context, winTile)
+    const yaku = checkYakuForParsed(parsed, allTiles, context, winTile)
     if (yaku.reduce((s, y) => s + y.han, 0) > bestYaku.reduce((s, y) => s + y.han, 0)) {
       bestYaku = yaku
     }
@@ -186,11 +208,16 @@ function checkHonitsu(tiles: Tile[]): boolean {
   return suits.size === 1
 }
 
-// 役牌（三元牌）: 白・發・中の刻子
+// 役牌（三元牌）: 白・發・中の刻子・槓子
 function checkYakuhaiDragon(parsed: ParsedHand): Honor[] {
   const dragons: Honor[] = ['white', 'green', 'red']
   return parsed.melds
-    .filter((m) => m.type === 'koutsu' && m.honor !== undefined && dragons.includes(m.honor))
+    .filter(
+      (m) =>
+        (m.type === 'koutsu' || m.type === 'kantsu') &&
+        m.honor !== undefined &&
+        dragons.includes(m.honor)
+    )
     .map((m) => m.honor!)
 }
 
@@ -202,7 +229,7 @@ function checkYakuhaiWind(
 ): { honor: Honor; han: number }[] {
   const result: { honor: Honor; han: number }[] = []
   for (const meld of parsed.melds) {
-    if (meld.type !== 'koutsu' || meld.honor === undefined) continue
+    if ((meld.type !== 'koutsu' && meld.type !== 'kantsu') || meld.honor === undefined) continue
     const isBakaze = meld.honor === bakaze
     const isJikaze = meld.honor === jikaze
     if (isBakaze || isJikaze) {
@@ -236,11 +263,14 @@ function countRyanpeikou(parsed: ParsedHand): number {
   return pairCount
 }
 
-// 小三元: 三元牌2種の刻子＋残り1種の雀頭
+// 小三元: 三元牌2種の刻子・槓子＋残り1種の雀頭
 function checkShousangen(parsed: ParsedHand): boolean {
   const dragons: Honor[] = ['white', 'green', 'red']
   const dragonKoutsu = parsed.melds.filter(
-    (m) => m.type === 'koutsu' && m.honor !== undefined && dragons.includes(m.honor)
+    (m) =>
+      (m.type === 'koutsu' || m.type === 'kantsu') &&
+      m.honor !== undefined &&
+      dragons.includes(m.honor)
   )
   if (dragonKoutsu.length !== 2) return false
   return parsed.pair.honor !== undefined && dragons.includes(parsed.pair.honor)
@@ -268,7 +298,7 @@ function checkSanshoku(parsed: ParsedHand): boolean {
   return false
 }
 
-// 三色同刻: 3色で同じ数字の刻子
+// 三色同刻: 3色で同じ数字の刻子・槓子
 function checkSanshokuDoukou(parsed: ParsedHand): boolean {
   const koutsuBySuit: { [key in Suit]: number[] } = {
     manzu: [],
@@ -277,7 +307,7 @@ function checkSanshokuDoukou(parsed: ParsedHand): boolean {
   }
 
   for (const meld of parsed.melds) {
-    if (meld.type === 'koutsu' && meld.suit) {
+    if ((meld.type === 'koutsu' || meld.type === 'kantsu') && meld.suit) {
       koutsuBySuit[meld.suit].push(meld.tiles[0])
     }
   }
@@ -306,15 +336,15 @@ function checkIttsu(parsed: ParsedHand): boolean {
   return false
 }
 
-// 対々和: 全て刻子
+// 対々和: 全て刻子・槓子
 function checkToitoi(parsed: ParsedHand): boolean {
-  return parsed.melds.every((m) => m.type === 'koutsu')
+  return parsed.melds.every((m) => m.type === 'koutsu' || m.type === 'kantsu')
 }
 
-// 三暗刻: 暗刻3つ（門前なので全て暗刻扱い）
+// 三暗刻: 暗刻（暗槓含む）3つ（門前なので全て暗刻扱い）
 function checkSanankou(parsed: ParsedHand): boolean {
-  const koutsuCount = parsed.melds.filter((m) => m.type === 'koutsu').length
-  return koutsuCount === 3
+  const closedCount = parsed.melds.filter((m) => m.type === 'koutsu' || m.type === 'kantsu').length
+  return closedCount === 3
 }
 
 // 純全帯幺九（ジュンチャン）: 全面子・雀頭に1か9を含む（字牌なし）
@@ -351,15 +381,27 @@ function checkChanta(parsed: ParsedHand): boolean {
 
 // ── 役満 ──────────────────────────────────────────────
 
-// 四暗刻: 暗刻4つ
-function checkSuuankou(parsed: ParsedHand): boolean {
-  return parsed.melds.filter((m) => m.type === 'koutsu').length === 4
+// 三槓子: 槓子3つ
+function checkSankantsu(parsed: ParsedHand): boolean {
+  return parsed.melds.filter((m) => m.type === 'kantsu').length === 3
 }
 
-// 大三元: 三元牌3種すべての刻子
+// 四槓子: 槓子4つ
+function checkSuukantsu(parsed: ParsedHand): boolean {
+  return parsed.melds.every((m) => m.type === 'kantsu')
+}
+
+// 四暗刻: 暗刻（暗槓含む）4つ
+function checkSuuankou(parsed: ParsedHand): boolean {
+  return parsed.melds.filter((m) => m.type === 'koutsu' || m.type === 'kantsu').length === 4
+}
+
+// 大三元: 三元牌3種すべての刻子・槓子
 function checkDaisangen(parsed: ParsedHand): boolean {
   const dragons: Honor[] = ['white', 'green', 'red']
-  return dragons.every((d) => parsed.melds.some((m) => m.type === 'koutsu' && m.honor === d))
+  return dragons.every((d) =>
+    parsed.melds.some((m) => (m.type === 'koutsu' || m.type === 'kantsu') && m.honor === d)
+  )
 }
 
 // 字一色: 全て字牌

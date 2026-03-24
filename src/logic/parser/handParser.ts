@@ -2,7 +2,7 @@ import { Tile, Suit, Honor, isNumberTile, isHonorTile, isYaochuuhai } from '@/ty
 
 // 面子の種類
 export interface Meld {
-  type: 'shuntsu' | 'koutsu'
+  type: 'shuntsu' | 'koutsu' | 'kantsu'
   // 数牌の場合
   suit?: Suit
   tiles?: number[]
@@ -60,6 +60,12 @@ export function isValidHand(tiles: Tile[]): boolean {
   return parseHand(tiles) !== null || isChiitoitsu(tiles) || isKokushi(tiles)
 }
 
+// 暗カンあり手牌の有効性検証
+export function isValidHandWithKans(tiles: Tile[], ankans: Tile[]): boolean {
+  if (ankans.length === 0) return isValidHand(tiles)
+  return parseAllHandsWithKans(tiles, ankans).length > 0
+}
+
 // 手牌の全ての有効な分解を返す
 export function parseAllHands(tiles: Tile[]): ParsedHand[] {
   if (tiles.length !== 14) return []
@@ -98,6 +104,56 @@ export function parseAllHands(tiles: Tile[]): ParsedHand[] {
 export function parseHand(tiles: Tile[]): ParsedHand | null {
   const all = parseAllHands(tiles)
   return all.length > 0 ? all[0] : null
+}
+
+// 暗カンあり手牌の全分解を返す
+export function parseAllHandsWithKans(tiles: Tile[], ankans: Tile[]): ParsedHand[] {
+  if (ankans.length === 0) return parseAllHands(tiles)
+  const k = ankans.length
+  // tiles は非カン部分（14 - 3k 枚）
+  if (tiles.length !== 14 - 3 * k) return []
+
+  const kantsuMelds: Meld[] = ankans.map((tile) => {
+    if (isNumberTile(tile)) {
+      return {
+        type: 'kantsu' as const,
+        suit: tile.suit,
+        tiles: [tile.value, tile.value, tile.value, tile.value],
+      }
+    } else {
+      return { type: 'kantsu' as const, honor: (tile as { honor: Honor }).honor }
+    }
+  })
+
+  const { suitCounts, honorCounts } = tilesToCounts(tiles)
+  const meldsNeeded = 4 - k
+  const results: ParsedHand[] = []
+
+  const suits: Suit[] = ['manzu', 'pinzu', 'souzu']
+  for (const suit of suits) {
+    for (let i = 0; i < 9; i++) {
+      if (suitCounts[suit][i] >= 2) {
+        suitCounts[suit][i] -= 2
+        for (const melds of findAllMelds(suitCounts, honorCounts, meldsNeeded, [...kantsuMelds])) {
+          results.push({ melds, pair: { suit, value: i + 1 } })
+        }
+        suitCounts[suit][i] += 2
+      }
+    }
+  }
+
+  const honors: Honor[] = ['east', 'south', 'west', 'north', 'white', 'green', 'red']
+  for (const honor of honors) {
+    if (honorCounts[honor] >= 2) {
+      honorCounts[honor] -= 2
+      for (const melds of findAllMelds(suitCounts, honorCounts, meldsNeeded, [...kantsuMelds])) {
+        results.push({ melds, pair: { honor } })
+      }
+      honorCounts[honor] += 2
+    }
+  }
+
+  return results
 }
 
 // 牌の配列をカウント配列に変換

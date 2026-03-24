@@ -1,5 +1,11 @@
 import { Honor, Tile, isNumberTile } from '@/types/tile'
-import { ParsedHand, Meld, Pair, parseAllHands } from '@/logic/parser/handParser'
+import {
+  ParsedHand,
+  Meld,
+  Pair,
+  parseAllHands,
+  parseAllHandsWithKans,
+} from '@/logic/parser/handParser'
 
 export type WinMethod = 'ron' | 'tsumo'
 export type WaitType = 'ryanmen' | 'shanpon' | 'kanchan' | 'penchan' | 'tanki'
@@ -25,8 +31,9 @@ function meldContainsTile(meld: Meld, tile: Tile): boolean {
   return meld.honor === (tile as { honor: string }).honor
 }
 
-export function detectWaitType(tiles: Tile[], winTile: Tile): WaitType {
-  for (const parsed of parseAllHands(tiles)) {
+export function detectWaitType(tiles: Tile[], winTile: Tile, ankans: Tile[] = []): WaitType {
+  const allParsed = ankans.length > 0 ? parseAllHandsWithKans(tiles, ankans) : parseAllHands(tiles)
+  for (const parsed of allParsed) {
     if (pairMatchesTile(parsed.pair, winTile)) return 'tanki'
     for (const meld of parsed.melds) {
       if (!meldContainsTile(meld, winTile)) continue
@@ -66,13 +73,17 @@ export function calculateFu(
   if (winMethod === 'ron') fu += 10
   else fu += 2 // ツモ加符
 
-  // 刻子の符
+  // 刻子・槓子の符
   for (const meld of parsed.melds) {
-    if (meld.type !== 'koutsu') continue
-    const isYaochuuhai =
+    if (meld.type !== 'koutsu' && meld.type !== 'kantsu') continue
+    const isYaochuuhaiMeld =
       meld.honor !== undefined ||
       (meld.tiles !== undefined && (meld.tiles[0] === 1 || meld.tiles[0] === 9))
-    fu += isYaochuuhai ? 16 : 4
+    if (meld.type === 'kantsu') {
+      fu += isYaochuuhaiMeld ? 32 : 16
+    } else {
+      fu += isYaochuuhaiMeld ? 16 : 4
+    }
   }
 
   // 雀頭の符
