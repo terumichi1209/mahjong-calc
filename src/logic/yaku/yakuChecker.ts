@@ -1,4 +1,4 @@
-import { Tile, Suit, Honor, isSimple, isNumberTile, isHonorTile } from '@/types/tile'
+import { Tile, Suit, Honor, isSimple, isNumberTile, isHonorTile, isTerminal } from '@/types/tile'
 import { Yaku } from '@/types/yaku'
 import { parseHand, ParsedHand, isChiitoitsu, isKokushi } from '@/logic/parser/handParser'
 
@@ -11,9 +11,18 @@ export interface WindContext {
 export function checkAllYaku(tiles: Tile[], context?: WindContext): Yaku[] {
   const yaku: Yaku[] = []
 
-  // 特殊形（役満）
-  if (isKokushi(tiles)) {
-    return [{ name: '国士無双', han: 13 }]
+  // 役満（特殊形）
+  if (isKokushi(tiles)) return [{ name: '国士無双', han: 13 }]
+
+  // 役満（通常形）
+  const parsedForYakuman = parseHand(tiles)
+  if (parsedForYakuman) {
+    if (checkSuuankou(parsedForYakuman)) return [{ name: '四暗刻', han: 13 }]
+    if (checkDaisangen(parsedForYakuman)) return [{ name: '大三元', han: 13 }]
+    if (checkTsuuiisou(tiles)) return [{ name: '字一色', han: 13 }]
+    if (checkRyuuiisou(tiles)) return [{ name: '緑一色', han: 13 }]
+    if (checkChinroutou(tiles)) return [{ name: '清老頭', han: 13 }]
+    if (checkChuuren(tiles)) return [{ name: '九蓮宝燈', han: 13 }]
   }
 
   // 七対子（単独判定）
@@ -279,4 +288,53 @@ function checkChanta(parsed: ParsedHand): boolean {
   }
 
   return hasHonor // 字牌がなければ純チャン（チャンタにならない）
+}
+
+// ── 役満 ──────────────────────────────────────────────
+
+// 四暗刻: 暗刻4つ
+function checkSuuankou(parsed: ParsedHand): boolean {
+  return parsed.melds.filter((m) => m.type === 'koutsu').length === 4
+}
+
+// 大三元: 三元牌3種すべての刻子
+function checkDaisangen(parsed: ParsedHand): boolean {
+  const dragons: Honor[] = ['white', 'green', 'red']
+  return dragons.every((d) => parsed.melds.some((m) => m.type === 'koutsu' && m.honor === d))
+}
+
+// 字一色: 全て字牌
+function checkTsuuiisou(tiles: Tile[]): boolean {
+  return tiles.every(isHonorTile)
+}
+
+// 緑一色: 2s 3s 4s 6s 8s 發のみ
+function checkRyuuiisou(tiles: Tile[]): boolean {
+  const greenSouzu = [2, 3, 4, 6, 8]
+  return tiles.every(
+    (t) =>
+      (isNumberTile(t) && t.suit === 'souzu' && greenSouzu.includes(t.value)) ||
+      (isHonorTile(t) && t.honor === 'green')
+  )
+}
+
+// 清老頭: 全て老頭牌（1か9の数牌）
+function checkChinroutou(tiles: Tile[]): boolean {
+  return tiles.every((t) => isTerminal(t))
+}
+
+// 九蓮宝燈: 同色で 1112345678999 + 同色1枚
+function checkChuuren(tiles: Tile[]): boolean {
+  const numberTiles = tiles.filter(isNumberTile)
+  if (numberTiles.length !== 14) return false
+  const suits = new Set(numberTiles.map((t) => t.suit))
+  if (suits.size !== 1) return false
+
+  const counts = new Array(9).fill(0)
+  for (const t of numberTiles) counts[t.value - 1]++
+
+  // 1と9が3枚以上、2〜8が1枚以上あること
+  const base = [3, 1, 1, 1, 1, 1, 1, 1, 3]
+  const extra = counts.map((c, i) => c - base[i])
+  return extra.every((e) => e >= 0) && extra.reduce((s, e) => s + e, 0) === 1
 }
