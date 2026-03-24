@@ -60,47 +60,44 @@ export function isValidHand(tiles: Tile[]): boolean {
   return parseHand(tiles) !== null || isChiitoitsu(tiles) || isKokushi(tiles)
 }
 
-// 手牌を分解して結果を返す（無効な場合はnull）
-export function parseHand(tiles: Tile[]): ParsedHand | null {
-  if (tiles.length !== 14) return null
+// 手牌の全ての有効な分解を返す
+export function parseAllHands(tiles: Tile[]): ParsedHand[] {
+  if (tiles.length !== 14) return []
 
+  const results: ParsedHand[] = []
   const { suitCounts, honorCounts } = tilesToCounts(tiles)
 
-  // 数牌の雀頭を試す
   const suits: Suit[] = ['manzu', 'pinzu', 'souzu']
   for (const suit of suits) {
     for (let i = 0; i < 9; i++) {
       if (suitCounts[suit][i] >= 2) {
         suitCounts[suit][i] -= 2
-        const melds: Meld[] = []
-        if (findMelds(suitCounts, honorCounts, 4, melds)) {
-          return {
-            melds,
-            pair: { suit, value: i + 1 },
-          }
+        for (const melds of findAllMelds(suitCounts, honorCounts, 4, [])) {
+          results.push({ melds, pair: { suit, value: i + 1 } })
         }
         suitCounts[suit][i] += 2
       }
     }
   }
 
-  // 字牌の雀頭を試す
   const honors: Honor[] = ['east', 'south', 'west', 'north', 'white', 'green', 'red']
   for (const honor of honors) {
     if (honorCounts[honor] >= 2) {
       honorCounts[honor] -= 2
-      const melds: Meld[] = []
-      if (findMelds(suitCounts, honorCounts, 4, melds)) {
-        return {
-          melds,
-          pair: { honor },
-        }
+      for (const melds of findAllMelds(suitCounts, honorCounts, 4, [])) {
+        results.push({ melds, pair: { honor } })
       }
       honorCounts[honor] += 2
     }
   }
 
-  return null
+  return results
+}
+
+// 手牌を分解して結果を返す（無効な場合はnull）
+export function parseHand(tiles: Tile[]): ParsedHand | null {
+  const all = parseAllHands(tiles)
+  return all.length > 0 ? all[0] : null
 }
 
 // 牌の配列をカウント配列に変換
@@ -131,42 +128,40 @@ function tilesToCounts(tiles: Tile[]): { suitCounts: SuitCounts; honorCounts: Ho
   return { suitCounts, honorCounts }
 }
 
-// 面子を探して結果を記録
-function findMelds(
+// 全ての有効な面子組み合わせを列挙
+function findAllMelds(
   suitCounts: SuitCounts,
   honorCounts: HonorCounts,
   meldsNeeded: number,
-  result: Meld[]
-): boolean {
+  current: Meld[]
+): Meld[][] {
   if (meldsNeeded === 0) {
     const allEmpty =
       Object.values(suitCounts).every((arr) => arr.every((c) => c === 0)) &&
       Object.values(honorCounts).every((c) => c === 0)
-    return allEmpty
+    return allEmpty ? [[...current]] : []
   }
 
-  // 字牌の刻子を探す
+  const results: Meld[][] = []
+
+  // 字牌：最初に残っている字牌は必ず刻子にするしかない
   const honors: Honor[] = ['east', 'south', 'west', 'north', 'white', 'green', 'red']
   for (const honor of honors) {
-    if (honorCounts[honor] >= 3) {
-      honorCounts[honor] -= 3
-      const meld: Meld = { type: 'koutsu', honor }
-      result.push(meld)
-      if (findMelds(suitCounts, honorCounts, meldsNeeded - 1, result)) {
-        honorCounts[honor] += 3
-        return true
-      }
-      result.pop()
-      honorCounts[honor] += 3
-    }
+    if (honorCounts[honor] === 0) continue
+    // 字牌があるが刻子を組めない場合は詰み
+    if (honorCounts[honor] < 3) return []
+    honorCounts[honor] -= 3
+    current.push({ type: 'koutsu', honor })
+    results.push(...findAllMelds(suitCounts, honorCounts, meldsNeeded - 1, current))
+    current.pop()
+    honorCounts[honor] += 3
+    return results // この字牌は必ずここで使う
   }
 
-  // 数牌の面子を探す
+  // 数牌：最初に残っている牌を必ず刻子か順子で使う
   const suits: Suit[] = ['manzu', 'pinzu', 'souzu']
   for (const suit of suits) {
     const counts = suitCounts[suit]
-
-    // 最初の牌がある位置を探す
     let firstIdx = -1
     for (let i = 0; i < 9; i++) {
       if (counts[i] > 0) {
@@ -174,23 +169,14 @@ function findMelds(
         break
       }
     }
-
     if (firstIdx === -1) continue
 
     // 刻子を試す
     if (counts[firstIdx] >= 3) {
       counts[firstIdx] -= 3
-      const meld: Meld = {
-        type: 'koutsu',
-        suit,
-        tiles: [firstIdx + 1, firstIdx + 1, firstIdx + 1],
-      }
-      result.push(meld)
-      if (findMelds(suitCounts, honorCounts, meldsNeeded - 1, result)) {
-        counts[firstIdx] += 3
-        return true
-      }
-      result.pop()
+      current.push({ type: 'koutsu', suit, tiles: [firstIdx + 1, firstIdx + 1, firstIdx + 1] })
+      results.push(...findAllMelds(suitCounts, honorCounts, meldsNeeded - 1, current))
+      current.pop()
       counts[firstIdx] += 3
     }
 
@@ -204,29 +190,16 @@ function findMelds(
       counts[firstIdx]--
       counts[firstIdx + 1]--
       counts[firstIdx + 2]--
-      const meld: Meld = {
-        type: 'shuntsu',
-        suit,
-        tiles: [firstIdx + 1, firstIdx + 2, firstIdx + 3],
-      }
-      result.push(meld)
-      if (findMelds(suitCounts, honorCounts, meldsNeeded - 1, result)) {
-        counts[firstIdx]++
-        counts[firstIdx + 1]++
-        counts[firstIdx + 2]++
-        return true
-      }
-      result.pop()
+      current.push({ type: 'shuntsu', suit, tiles: [firstIdx + 1, firstIdx + 2, firstIdx + 3] })
+      results.push(...findAllMelds(suitCounts, honorCounts, meldsNeeded - 1, current))
+      current.pop()
       counts[firstIdx]++
       counts[firstIdx + 1]++
       counts[firstIdx + 2]++
     }
 
-    // この色に牌があるのに面子が作れなかった場合は失敗
-    if (firstIdx !== -1) {
-      return false
-    }
+    return results // この牌は必ずここで使う
   }
 
-  return meldsNeeded === 0
+  return results
 }

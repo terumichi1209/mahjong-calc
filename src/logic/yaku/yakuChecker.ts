@@ -1,114 +1,88 @@
 import { Tile, Suit, Honor, isSimple, isNumberTile, isHonorTile, isTerminal } from '@/types/tile'
 import { Yaku } from '@/types/yaku'
-import { parseHand, ParsedHand, isChiitoitsu, isKokushi } from '@/logic/parser/handParser'
+import { parseAllHands, ParsedHand, isChiitoitsu, isKokushi } from '@/logic/parser/handParser'
 
 export interface WindContext {
   bakaze: Honor // 場風
   jikaze: Honor // 自風
 }
 
-// 全ての役を判定
-export function checkAllYaku(tiles: Tile[], context?: WindContext): Yaku[] {
+// 1つの分解に対して通常役を判定
+function checkYakuForParsed(parsed: ParsedHand, tiles: Tile[], context?: WindContext): Yaku[] {
   const yaku: Yaku[] = []
 
-  // 役満（特殊形）
-  if (isKokushi(tiles)) return [{ name: '国士無双', han: 13 }]
+  if (checkTanyao(tiles)) yaku.push({ name: 'タンヤオ', han: 1 })
+  if (checkPinfu(parsed)) yaku.push({ name: '平和', han: 1 })
 
-  // 役満（通常形）
-  const parsedForYakuman = parseHand(tiles)
-  if (parsedForYakuman) {
-    if (checkSuuankou(parsedForYakuman)) return [{ name: '四暗刻', han: 13 }]
-    if (checkDaisangen(parsedForYakuman)) return [{ name: '大三元', han: 13 }]
-    if (checkTsuuiisou(tiles)) return [{ name: '字一色', han: 13 }]
-    if (checkRyuuiisou(tiles)) return [{ name: '緑一色', han: 13 }]
-    if (checkChinroutou(tiles)) return [{ name: '清老頭', han: 13 }]
-    if (checkChuuren(tiles)) return [{ name: '九蓮宝燈', han: 13 }]
-  }
-
-  // 七対子（単独判定）
-  if (isChiitoitsu(tiles)) {
-    return [{ name: '七対子', han: 2 }]
-  }
-
-  const parsed = parseHand(tiles)
-
-  if (!parsed) return yaku
-
-  // 1翻
-  if (checkTanyao(tiles)) {
-    yaku.push({ name: 'タンヤオ', han: 1 })
-  }
-
-  if (checkPinfu(parsed)) {
-    yaku.push({ name: '平和', han: 1 })
-  }
-
-  // 役牌（三元牌）
   for (const honor of checkYakuhaiDragon(parsed)) {
     const label = { white: '白', green: '發', red: '中' }[honor]
     yaku.push({ name: `役牌(${label})`, han: 1 })
   }
 
-  // 役牌（風牌）
   if (context) {
+    const windLabel: Record<Honor, string> = {
+      east: '東',
+      south: '南',
+      west: '西',
+      north: '北',
+      white: '白',
+      green: '發',
+      red: '中',
+    }
     for (const { honor, han } of checkYakuhaiWind(parsed, context.bakaze, context.jikaze)) {
-      const label: Record<Honor, string> = {
-        east: '東',
-        south: '南',
-        west: '西',
-        north: '北',
-        white: '白',
-        green: '發',
-        red: '中',
-      }
-      yaku.push({ name: `役牌(${label[honor]})`, han })
+      yaku.push({ name: `役牌(${windLabel[honor]})`, han })
     }
   }
 
-  // 一盃口と二盃口は複合しない
   const ryanpeikouCount = countRyanpeikou(parsed)
-  if (ryanpeikouCount === 2) {
-    yaku.push({ name: '二盃口', han: 3 })
-  } else if (ryanpeikouCount === 1) {
-    yaku.push({ name: '一盃口', han: 1 })
-  }
+  if (ryanpeikouCount === 2) yaku.push({ name: '二盃口', han: 3 })
+  else if (ryanpeikouCount === 1) yaku.push({ name: '一盃口', han: 1 })
 
-  // 2翻
-  if (checkSanshoku(parsed)) {
-    yaku.push({ name: '三色同順', han: 2 })
-  }
+  if (checkSanshoku(parsed)) yaku.push({ name: '三色同順', han: 2 })
+  if (checkSanshokuDoukou(parsed)) yaku.push({ name: '三色同刻', han: 2 })
+  if (checkIttsu(parsed)) yaku.push({ name: '一気通貫', han: 2 })
+  if (checkToitoi(parsed)) yaku.push({ name: '対々和', han: 2 })
+  if (checkSanankou(parsed)) yaku.push({ name: '三暗刻', han: 2 })
 
-  if (checkSanshokuDoukou(parsed)) {
-    yaku.push({ name: '三色同刻', han: 2 })
-  }
+  if (checkJunchan(parsed)) yaku.push({ name: '純全帯幺九', han: 3 })
+  else if (checkChanta(parsed)) yaku.push({ name: '混全帯幺九', han: 2 })
 
-  if (checkIttsu(parsed)) {
-    yaku.push({ name: '一気通貫', han: 2 })
-  }
-
-  if (checkToitoi(parsed)) {
-    yaku.push({ name: '対々和', han: 2 })
-  }
-
-  if (checkSanankou(parsed)) {
-    yaku.push({ name: '三暗刻', han: 2 })
-  }
-
-  // チャンタと純チャンは複合しない（純チャン優先）
-  if (checkJunchan(parsed)) {
-    yaku.push({ name: '純全帯幺九', han: 3 })
-  } else if (checkChanta(parsed)) {
-    yaku.push({ name: '混全帯幺九', han: 2 })
-  }
-
-  // 混一色と清一色は複合しない（清一色優先）
-  if (checkChinitsu(tiles)) {
-    yaku.push({ name: '清一色', han: 6 })
-  } else if (checkHonitsu(tiles)) {
-    yaku.push({ name: '混一色', han: 3 })
-  }
+  if (checkChinitsu(tiles)) yaku.push({ name: '清一色', han: 6 })
+  else if (checkHonitsu(tiles)) yaku.push({ name: '混一色', han: 3 })
 
   return yaku
+}
+
+// 全ての役を判定
+export function checkAllYaku(tiles: Tile[], context?: WindContext): Yaku[] {
+  // 役満（特殊形）
+  if (isKokushi(tiles)) return [{ name: '国士無双', han: 13 }]
+
+  // 七対子（単独判定）
+  if (isChiitoitsu(tiles)) return [{ name: '七対子', han: 2 }]
+
+  // 役満（通常形）: 全分解を確認
+  const allParsed = parseAllHands(tiles)
+  if (allParsed.length === 0) return []
+
+  for (const parsed of allParsed) {
+    if (checkSuuankou(parsed)) return [{ name: '四暗刻', han: 13 }]
+    if (checkDaisangen(parsed)) return [{ name: '大三元', han: 13 }]
+  }
+  if (checkTsuuiisou(tiles)) return [{ name: '字一色', han: 13 }]
+  if (checkRyuuiisou(tiles)) return [{ name: '緑一色', han: 13 }]
+  if (checkChinroutou(tiles)) return [{ name: '清老頭', han: 13 }]
+  if (checkChuuren(tiles)) return [{ name: '九蓮宝燈', han: 13 }]
+
+  // 通常役: 全分解を試し最高翻数の組み合わせを返す
+  let bestYaku: Yaku[] = []
+  for (const parsed of allParsed) {
+    const yaku = checkYakuForParsed(parsed, tiles, context)
+    if (yaku.reduce((s, y) => s + y.han, 0) > bestYaku.reduce((s, y) => s + y.han, 0)) {
+      bestYaku = yaku
+    }
+  }
+  return bestYaku
 }
 
 // タンヤオ: 全て中張牌（2-8）
