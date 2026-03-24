@@ -1,9 +1,14 @@
-import { Tile, Suit, isSimple } from '@/types/tile'
+import { Tile, Suit, Honor, isSimple, isNumberTile, isHonorTile } from '@/types/tile'
 import { Yaku } from '@/types/yaku'
-import { parseHand, ParsedHand, Meld } from '@/logic/parser/handParser'
+import { parseHand, ParsedHand } from '@/logic/parser/handParser'
+
+export interface WindContext {
+  bakaze: Honor // 場風
+  jikaze: Honor // 自風
+}
 
 // 全ての役を判定
-export function checkAllYaku(tiles: Tile[]): Yaku[] {
+export function checkAllYaku(tiles: Tile[], context?: WindContext): Yaku[] {
   const yaku: Yaku[] = []
   const parsed = parseHand(tiles)
 
@@ -16,6 +21,28 @@ export function checkAllYaku(tiles: Tile[]): Yaku[] {
 
   if (checkPinfu(parsed)) {
     yaku.push({ name: '平和', han: 1 })
+  }
+
+  // 役牌（三元牌）
+  for (const honor of checkYakuhaiDragon(parsed)) {
+    const label = { white: '白', green: '發', red: '中' }[honor]
+    yaku.push({ name: `役牌(${label})`, han: 1 })
+  }
+
+  // 役牌（風牌）
+  if (context) {
+    for (const { honor, han } of checkYakuhaiWind(parsed, context.bakaze, context.jikaze)) {
+      const label: Record<Honor, string> = {
+        east: '東',
+        south: '南',
+        west: '西',
+        north: '北',
+        white: '白',
+        green: '發',
+        red: '中',
+      }
+      yaku.push({ name: `役牌(${label[honor]})`, han })
+    }
   }
 
   // 一盃口と二盃口は複合しない
@@ -54,9 +81,11 @@ export function checkAllYaku(tiles: Tile[]): Yaku[] {
     yaku.push({ name: '混全帯幺九', han: 2 })
   }
 
-  // 6翻
+  // 混一色と清一色は複合しない（清一色優先）
   if (checkChinitsu(tiles)) {
     yaku.push({ name: '清一色', han: 6 })
+  } else if (checkHonitsu(tiles)) {
+    yaku.push({ name: '混一色', han: 3 })
   }
 
   return yaku
@@ -72,10 +101,46 @@ function checkPinfu(parsed: ParsedHand): boolean {
   return parsed.melds.every((m) => m.type === 'shuntsu')
 }
 
-// 清一色: 全て同じ色
+// 清一色: 全て同じ色の数牌（字牌なし）
 function checkChinitsu(tiles: Tile[]): boolean {
-  const suits = new Set(tiles.map((t) => t.suit))
+  if (tiles.some(isHonorTile)) return false
+  const suits = new Set(tiles.filter(isNumberTile).map((t) => t.suit))
   return suits.size === 1
+}
+
+// 混一色: 1色の数牌＋字牌（数牌は1色のみ）
+function checkHonitsu(tiles: Tile[]): boolean {
+  const numberTiles = tiles.filter(isNumberTile)
+  const honorTiles = tiles.filter(isHonorTile)
+  if (numberTiles.length === 0 || honorTiles.length === 0) return false
+  const suits = new Set(numberTiles.map((t) => t.suit))
+  return suits.size === 1
+}
+
+// 役牌（三元牌）: 白・發・中の刻子
+function checkYakuhaiDragon(parsed: ParsedHand): Honor[] {
+  const dragons: Honor[] = ['white', 'green', 'red']
+  return parsed.melds
+    .filter((m) => m.type === 'koutsu' && m.honor !== undefined && dragons.includes(m.honor))
+    .map((m) => m.honor!)
+}
+
+// 役牌（風牌）: 場風・自風の刻子
+function checkYakuhaiWind(
+  parsed: ParsedHand,
+  bakaze: Honor,
+  jikaze: Honor
+): { honor: Honor; han: number }[] {
+  const result: { honor: Honor; han: number }[] = []
+  for (const meld of parsed.melds) {
+    if (meld.type !== 'koutsu' || meld.honor === undefined) continue
+    const isBakaze = meld.honor === bakaze
+    const isJikaze = meld.honor === jikaze
+    if (isBakaze || isJikaze) {
+      result.push({ honor: meld.honor, han: isBakaze && isJikaze ? 2 : 1 })
+    }
+  }
+  return result
 }
 
 // 一盃口/二盃口のカウント
@@ -173,25 +238,34 @@ function checkSanankou(parsed: ParsedHand): boolean {
   return koutsuCount === 3
 }
 
-// 混全帯幺九（チャンタ）: 全ての面子と雀頭に1か9を含む（字牌なしなので純チャンと同じ条件）
-function checkChanta(parsed: ParsedHand): boolean {
-  return checkJunchan(parsed)
+// 純全帯幺九（ジュンチャン）: 全面子・雀頭に1か9を含む（字牌なし）
+function checkJunchan(parsed: ParsedHand): boolean {
+  // 雀頭が数牌の1か9（字牌はNG）
+  if (parsed.pair.honor !== undefined) return false
+  if (parsed.pair.value !== 1 && parsed.pair.value !== 9) return false
+
+  for (const meld of parsed.melds) {
+    if (meld.honor !== undefined) return false // 字牌面子はNG
+    if (!meld.tiles || !meld.tiles.some((t) => t === 1 || t === 9)) return false
+  }
+  return true
 }
 
-// 純全帯幺九（ジュンチャン）: 全ての面子と雀頭に1か9を含む
-function checkJunchan(parsed: ParsedHand): boolean {
-  // 雀頭が1か9か
-  if (parsed.pair.value !== 1 && parsed.pair.value !== 9) {
-    return false
-  }
+// 混全帯幺九（チャンタ）: 全面子・雀頭に幺九牌を含み、字牌が1つ以上ある
+function checkChanta(parsed: ParsedHand): boolean {
+  const pairHasYaochuuhai =
+    parsed.pair.honor !== undefined || parsed.pair.value === 1 || parsed.pair.value === 9
+  if (!pairHasYaochuuhai) return false
 
-  // 全ての面子に1か9が含まれるか
+  let hasHonor = parsed.pair.honor !== undefined
+
   for (const meld of parsed.melds) {
-    const hasTerminal = meld.tiles.some((t) => t === 1 || t === 9)
-    if (!hasTerminal) {
-      return false
+    if (meld.honor !== undefined) {
+      hasHonor = true
+      continue // 字牌刻子は幺九牌を含む
     }
+    if (!meld.tiles || !meld.tiles.some((t) => t === 1 || t === 9)) return false
   }
 
-  return true
+  return hasHonor // 字牌がなければ純チャン（チャンタにならない）
 }

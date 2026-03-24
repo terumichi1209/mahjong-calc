@@ -12,7 +12,7 @@ import {
   tileToSortKey,
   isSameTile,
 } from '@/types/tile'
-import { checkAllYaku } from '@/logic/yaku/yakuChecker'
+import { checkAllYaku, WindContext } from '@/logic/yaku/yakuChecker'
 import { calculateScore } from '@/logic/score/scoreCalculator'
 import { isValidHand } from '@/logic/parser/handParser'
 
@@ -26,10 +26,19 @@ const HONORS: { honor: Honor; label: string }[] = [
   { honor: 'red', label: '中' },
 ]
 
+const WINDS: { honor: Honor; label: string }[] = [
+  { honor: 'east', label: '東' },
+  { honor: 'south', label: '南' },
+  { honor: 'west', label: '西' },
+  { honor: 'north', label: '北' },
+]
+
 export default function App() {
   const [selectedTiles, setSelectedTiles] = useState<Tile[]>([])
   const [result, setResult] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [bakaze, setBakaze] = useState<Honor>('east')
+  const [jikaze, setJikaze] = useState<Honor>('east')
 
   // 指定の牌が何枚選択されているか
   const countTile = (tile: Tile) => {
@@ -72,7 +81,8 @@ export default function App() {
         return
       }
 
-      const yaku = checkAllYaku(selectedTiles)
+      const windContext: WindContext = { bakaze, jikaze }
+      const yaku = checkAllYaku(selectedTiles, windContext)
 
       if (yaku.length > 0) {
         const totalHan = yaku.reduce((sum, y) => sum + y.han, 0)
@@ -88,13 +98,48 @@ export default function App() {
       setResult(null)
       setIsSuccess(false)
     }
-  }, [selectedTiles])
+  }, [selectedTiles, bakaze, jikaze])
 
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>麻雀点数計算</Text>
+
+        <View style={styles.windContainer}>
+          <View style={styles.windRow}>
+            <Text style={styles.windLabel}>場風</Text>
+            {WINDS.map(({ honor, label }) => (
+              <TouchableOpacity
+                key={honor}
+                style={[styles.windButton, bakaze === honor && styles.windButtonActive]}
+                onPress={() => setBakaze(honor)}
+              >
+                <Text
+                  style={[styles.windButtonText, bakaze === honor && styles.windButtonTextActive]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.windRow}>
+            <Text style={styles.windLabel}>自風</Text>
+            {WINDS.map(({ honor, label }) => (
+              <TouchableOpacity
+                key={honor}
+                style={[styles.windButton, jikaze === honor && styles.windButtonActive]}
+                onPress={() => setJikaze(honor)}
+              >
+                <Text
+                  style={[styles.windButtonText, jikaze === honor && styles.windButtonTextActive]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
         <View style={styles.handContainer}>
           <Text style={styles.label}>手牌 ({selectedTiles.length}/14)</Text>
@@ -205,6 +250,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     color: '#333',
+  },
+  windContainer: {
+    marginBottom: 16,
+  },
+  windRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  windLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    width: 30,
+  },
+  windButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+  },
+  windButtonActive: {
+    backgroundColor: '#1976D2',
+    borderColor: '#1976D2',
+  },
+  windButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  windButtonTextActive: {
+    color: '#fff',
   },
   handContainer: {
     marginBottom: 24,
