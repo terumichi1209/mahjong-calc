@@ -8,11 +8,16 @@ export interface WindContext {
 }
 
 // 1つの分解に対して通常役を判定
-function checkYakuForParsed(parsed: ParsedHand, tiles: Tile[], context?: WindContext): Yaku[] {
+function checkYakuForParsed(
+  parsed: ParsedHand,
+  tiles: Tile[],
+  context?: WindContext,
+  winTile?: Tile
+): Yaku[] {
   const yaku: Yaku[] = []
 
   if (checkTanyao(tiles)) yaku.push({ name: 'タンヤオ', han: 1 })
-  if (checkPinfu(parsed)) yaku.push({ name: '平和', han: 1 })
+  if (checkPinfu(parsed, context, winTile)) yaku.push({ name: '平和', han: 1 })
 
   for (const honor of checkYakuhaiDragon(parsed)) {
     const label = { white: '白', green: '發', red: '中' }[honor]
@@ -54,7 +59,7 @@ function checkYakuForParsed(parsed: ParsedHand, tiles: Tile[], context?: WindCon
 }
 
 // 全ての役を判定
-export function checkAllYaku(tiles: Tile[], context?: WindContext): Yaku[] {
+export function checkAllYaku(tiles: Tile[], context?: WindContext, winTile?: Tile): Yaku[] {
   // 役満（特殊形）
   if (isKokushi(tiles)) return [{ name: '国士無双', han: 13 }]
 
@@ -77,7 +82,7 @@ export function checkAllYaku(tiles: Tile[], context?: WindContext): Yaku[] {
   // 通常役: 全分解を試し最高翻数の組み合わせを返す
   let bestYaku: Yaku[] = []
   for (const parsed of allParsed) {
-    const yaku = checkYakuForParsed(parsed, tiles, context)
+    const yaku = checkYakuForParsed(parsed, tiles, context, winTile)
     if (yaku.reduce((s, y) => s + y.han, 0) > bestYaku.reduce((s, y) => s + y.han, 0)) {
       bestYaku = yaku
     }
@@ -90,9 +95,32 @@ function checkTanyao(tiles: Tile[]): boolean {
   return tiles.every((tile) => isSimple(tile))
 }
 
-// 平和: 順子のみ（字牌なしなので雀頭の条件は常に満たす）
-function checkPinfu(parsed: ParsedHand): boolean {
-  return parsed.melds.every((m) => m.type === 'shuntsu')
+// 平和: 全て順子 + 雀頭が役牌でない + 両面待ち
+function checkPinfu(parsed: ParsedHand, context?: WindContext, winTile?: Tile): boolean {
+  if (!parsed.melds.every((m) => m.type === 'shuntsu')) return false
+
+  // 雀頭が役牌でないこと
+  if (parsed.pair.honor !== undefined) {
+    const dragons: Honor[] = ['white', 'green', 'red']
+    if (dragons.includes(parsed.pair.honor)) return false
+    if (context) {
+      if (parsed.pair.honor === context.bakaze) return false
+      if (parsed.pair.honor === context.jikaze) return false
+    }
+  }
+
+  // 両面待ちであること
+  if (!winTile || !isNumberTile(winTile)) return false
+  for (const meld of parsed.melds) {
+    if (meld.type !== 'shuntsu' || meld.suit !== winTile.suit) continue
+    if (!meld.tiles?.includes(winTile.value)) continue
+    const [s1, s2, s3] = meld.tiles
+    if (winTile.value === s2) return false // 嵌張
+    if (winTile.value === s3 && s1 === 1) return false // 辺張
+    if (winTile.value === s1 && s3 === 9) return false // 辺張
+    return true // 両面
+  }
+  return false
 }
 
 // 清一色: 全て同じ色の数牌（字牌なし）

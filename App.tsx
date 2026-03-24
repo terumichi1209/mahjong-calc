@@ -124,7 +124,7 @@ export default function App() {
       }
 
       const windContext: WindContext = { bakaze, jikaze }
-      const yaku = checkAllYaku(allTiles, windContext)
+      const yaku = checkAllYaku(allTiles, windContext, winTile)
       const isChiitoitsu = yaku.some((y) => y.name === '七対子')
       const isKokushiYaku = yaku.some((y) => y.name === '国士無双')
 
